@@ -62,6 +62,12 @@ function initSupabase() {
     supabaseConfigurado = false;
     return false;
   }
+  // Idempotente: si ya se creó el cliente, reutilizarlo (evita el warning
+  // "Multiple GoTrueClient instances" cuando initSupabase se llama 2 veces).
+  if (_supabase) {
+    supabaseConfigurado = true;
+    return true;
+  }
   try {
     _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     supabaseConfigurado = true;
