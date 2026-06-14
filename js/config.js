@@ -45,6 +45,11 @@ window.CONFIG = {
   USE_EDGE_FUNCTION: false,
   EDGE_FUNCTION_NAME: 'submit-prode',
 
+  // --- IA (OpenRouter + DeepSeek vía Edge Function ai-proxy) ---
+  // La API key vive SOLO como secret del proxy; nunca en el frontend.
+  AI_ENABLED: true,
+  AI_PROXY_FN: 'ai-proxy',
+
   // --- localStorage keys ---
   LS: {
     ENVIADO: 'prode_enviado',

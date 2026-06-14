@@ -5,6 +5,11 @@
 > hace por fases y requiere primero resolver la arquitectura segura (§1).
 > Fecha: 2026-06-14.
 
+> **Estado:** ✅ Fase 0 (proxy `ai-proxy`) y 🔴 2.1 (chatbot/asistente) **implementados y en vivo**.
+> Edge Function `supabase/functions/ai-proxy` desplegada con la key como secret + rate-limit;
+> widget de chat en el sitio (`js/ai.js`, flag `CONFIG.AI_ENABLED`). Modelo: `deepseek/deepseek-chat`.
+> Resto de features: pendientes (ver roadmap §3).
+
 ---
 
 ## 0. ⚠️ Seguridad: la API key NUNCA va en el frontend
