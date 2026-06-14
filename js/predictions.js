@@ -15,12 +15,33 @@ window.ProdePredictions = (function () {
   const C = () => window.CONFIG || {};
   const LS = () => (C().LS || {});
 
-  // Partidos que aún se pueden pronosticar (kickoff no pasó).
+  // Partidos con resultado oficial cargado (se bloquean aunque no haya pasado el kickoff).
+  let partidosConResultado = new Set();
+
+  // Un partido está cerrado si pasó su kickoff O si ya tiene resultado cargado.
+  function estaCerrado(match) {
+    return U().partidoCerrado(match) || partidosConResultado.has(match.id);
+  }
+
+  // Partidos que aún se pueden pronosticar.
   function partidosEditables() {
-    return TODOS_LOS_PARTIDOS.filter(m => !U().partidoCerrado(m));
+    return TODOS_LOS_PARTIDOS.filter(m => !estaCerrado(m));
+  }
+
+  // Carga los ids de partidos que ya tienen resultado (finalizados).
+  async function cargarPartidosConResultado() {
+    try {
+      const res = await obtenerResultados();
+      partidosConResultado = new Set((res || []).map(r => r.partido_id));
+    } catch (e) {
+      partidosConResultado = new Set();
+    }
   }
 
   async function init() {
+    // Cargar resultados ANTES de renderizar para bloquear partidos finalizados.
+    await cargarPartidosConResultado();
+
     renderGroupTabs();
     renderJornadaFilter();
     renderFixture();
@@ -218,9 +239,12 @@ window.ProdePredictions = (function () {
       g.partidos.forEach(match => {
         const local = EQUIPOS[match.local];
         const visitante = EQUIPOS[match.visitante];
-        const cerrado = U().partidoCerrado(match);
+        const porResultado = partidosConResultado.has(match.id);
+        const cerrado = porResultado || U().partidoCerrado(match);
         const disabledAttr = cerrado ? 'disabled' : '';
-        const lockBadge = cerrado ? `<span class="match-lock" title="Cerrado: el partido ya comenzó">🔒 CERRADO</span>` : '';
+        const lockBadge = cerrado
+          ? `<span class="match-lock" title="${porResultado ? 'Partido finalizado' : 'El partido ya comenzó'}">🔒 ${porResultado ? 'FINALIZADO' : 'CERRADO'}</span>`
+          : '';
 
         html += `
           <div class="match-card ${cerrado ? 'locked' : ''}" id="match-card-${match.id}" data-jornada="${match.jornada}">
