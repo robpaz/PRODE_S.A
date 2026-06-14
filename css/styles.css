@@ -2045,3 +2045,35 @@ input {
 }
 .recalc-status { margin-left: 12px; color: var(--text-secondary); font-size: 0.85rem; }
 .hidden { display: none !important; }
+
+/* --- Mi Prode: selector de participante --- */
+.miprode-selector {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.miprode-selector label {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.miprode-selector select {
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-gold);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  cursor: pointer;
+}
+.miprode-selector select:focus {
+  outline: none;
+  border-color: var(--gold);
+}

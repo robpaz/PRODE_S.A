@@ -1,56 +1,90 @@
 // ============================================================
-// PRODE MUNDIAL FIFA 2026 — "MI PRODE" LOGIC
+// PRODE MUNDIAL FIFA 2026 — "PREDICCIONES" (visor de todos)
 // ============================================================
-// Muestra el Prode enviado por el participante (solo lectura) y,
-// a medida que se cargan los resultados oficiales, los puntos
-// obtenidos partido a partido.
+// Muestra las predicciones de CUALQUIER participante (elegido de una
+// lista), no solo las del dispositivo actual. Así los que enviaron
+// antes de existir el token también pueden ver sus pronósticos.
+// Si el dispositivo tiene token, se preselecciona ese participante.
 // ============================================================
 
 window.ProdeMiProde = (function () {
   const U = () => window.ProdeUtils;
   const LS = () => ((window.CONFIG && window.CONFIG.LS) || {});
+  let resultadosMap = {};
+  let participantesCache = [];
 
   async function init() {
     const cont = document.getElementById('miprode-container');
     if (!cont) return;
 
-    const token = localStorage.getItem(LS().TOKEN || 'prode_token');
-    if (!token) {
-      cont.innerHTML = `
-        <div class="miprode-empty">
-          <p>📭 Todavía no enviaste tu Prode desde este dispositivo.</p>
-          <a href="#prediccion" class="btn-primary">HACER MI PREDICCIÓN</a>
-        </div>`;
-      return;
-    }
-
-    cont.innerHTML = `<div class="table-loading"><span class="loading-spinner"></span>Cargando tu Prode...</div>`;
+    cont.innerHTML = `<div class="table-loading"><span class="loading-spinner"></span>Cargando predicciones...</div>`;
 
     try {
-      const [participante, preds, resultados] = await Promise.all([
-        obtenerParticipante(token),
-        obtenerPrediccionesDeParticipante(token),
+      const [participantes, resultados] = await Promise.all([
+        obtenerClasificacion(),
         obtenerResultados(),
       ]);
+      participantesCache = participantes || [];
 
-      if (!preds || preds.length === 0) {
-        cont.innerHTML = `<div class="miprode-empty"><p>No se encontraron tus pronósticos.</p></div>`;
+      resultadosMap = {};
+      (resultados || []).forEach(r => { resultadosMap[r.partido_id] = r; });
+
+      if (!participantesCache.length) {
+        cont.innerHTML = `
+          <div class="miprode-empty">
+            <p>📭 Aún no hay participantes registrados.</p>
+            <a href="#prediccion" class="btn-primary">HACER MI PREDICCIÓN</a>
+          </div>`;
         return;
       }
 
-      const mapR = {};
-      (resultados || []).forEach(r => { mapR[r.partido_id] = r; });
+      const token = localStorage.getItem(LS().TOKEN || 'prode_token');
+      const options = participantesCache.map(p =>
+        `<option value="${p.id}">${U().escapeHTML(p.nombre)} — ${U().escapeHTML(p.curso)}</option>`
+      ).join('');
+
+      cont.innerHTML = `
+        <div class="miprode-selector">
+          <label for="miprode-select">Ver predicciones de:</label>
+          <select id="miprode-select">${options}</select>
+        </div>
+        <div id="miprode-detalle"></div>`;
+
+      const sel = document.getElementById('miprode-select');
+      const inicial = (token && participantesCache.some(p => p.id === token))
+        ? token
+        : participantesCache[0].id;
+      sel.value = inicial;
+      sel.onchange = () => renderDetalle(sel.value);
+      renderDetalle(inicial);
+    } catch (e) {
+      window.ProdeApp.handleError('miprode', e, 'No se pudieron cargar las predicciones.');
+      cont.innerHTML = `<div class="miprode-empty"><p>⚠️ Error al cargar las predicciones.</p></div>`;
+    }
+  }
+
+  async function renderDetalle(participanteId) {
+    const det = document.getElementById('miprode-detalle');
+    if (!det) return;
+    det.innerHTML = `<div class="table-loading"><span class="loading-spinner"></span>Cargando...</div>`;
+
+    try {
+      const participante = participantesCache.find(p => p.id === participanteId);
+      const preds = await obtenerPrediccionesDeParticipante(participanteId);
+
+      if (!preds || preds.length === 0) {
+        det.innerHTML = `<div class="miprode-empty"><p>Este participante no tiene pronósticos cargados.</p></div>`;
+        return;
+      }
 
       const predById = {};
       preds.forEach(p => { predById[p.partido_id] = p; });
 
-      let totalPuntos = 0, exactos = 0;
-      let filas = '';
-
+      let totalPuntos = 0, exactos = 0, filas = '';
       TODOS_LOS_PARTIDOS.forEach(match => {
         const pred = predById[match.id];
         if (!pred) return;
-        const real = mapR[match.id];
+        const real = resultadosMap[match.id];
         const local = EQUIPOS[match.local];
         const visitante = EQUIPOS[match.visitante];
         const res = real ? U().calcularPuntos(pred, real) : null;
@@ -74,7 +108,7 @@ window.ProdeMiProde = (function () {
           </tr>`;
       });
 
-      cont.innerHTML = `
+      det.innerHTML = `
         <div class="miprode-header-card">
           <div>
             <div class="miprode-nombre">${U().escapeHTML(participante ? participante.nombre : '')}</div>
@@ -85,20 +119,19 @@ window.ProdeMiProde = (function () {
             <div><span class="miprode-stat-num">${participante ? participante.aciertos_exactos : exactos}</span><span class="miprode-stat-lbl">EXACTOS</span></div>
           </div>
         </div>
-        ${window.CONFIG && window.CONFIG.ALLOW_EDIT ? '<a href="#prediccion" class="btn-secondary miprode-edit-btn">✏️ EDITAR MI PRODE</a>' : ''}
         <div class="standings-card">
           <div class="table-wrapper">
             <table class="standings-table miprode-table">
               <thead>
-                <tr><th>JOR</th><th>MI PRONÓSTICO</th><th>RESULTADO</th><th>PTS</th></tr>
+                <tr><th>JOR</th><th>PRONÓSTICO</th><th>RESULTADO</th><th>PTS</th></tr>
               </thead>
               <tbody>${filas}</tbody>
             </table>
           </div>
         </div>`;
     } catch (e) {
-      window.ProdeApp.handleError('miprode', e, 'No se pudo cargar tu Prode.');
-      cont.innerHTML = `<div class="miprode-empty"><p>⚠️ Error al cargar tu Prode.</p></div>`;
+      window.ProdeApp.handleError('miprode-detalle', e, 'No se pudo cargar el detalle.');
+      det.innerHTML = `<div class="miprode-empty"><p>⚠️ Error al cargar el detalle.</p></div>`;
     }
   }
 
