@@ -141,6 +141,7 @@ de cada cambio.
 - [`docs/SPECS.md`](./docs/SPECS.md) — Especificación técnica del **estado actual**.
 - [`docs/SPECS_IMPROVEMENTS.md`](./docs/SPECS_IMPROVEMENTS.md) — **Propuesta de mejoras** y roadmap.
 - [`docs/REGLAMENTO.md`](./docs/REGLAMENTO.md) — **Reglamento del juego** (puntaje, desempates, participación).
+- [`docs/MEJORAS_IA.md`](./docs/MEJORAS_IA.md) — **Mejoras con IA** (OpenRouter + DeepSeek): arquitectura segura (proxy) y features propuestas.
 - [`CHANGELOG.md`](./CHANGELOG.md) — Historial de cambios.
 
 ---
