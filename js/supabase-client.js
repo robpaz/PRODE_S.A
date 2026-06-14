@@ -94,13 +94,13 @@ function getMockParticipantes() {
       { id: 'mock-6', nombre: 'Camila Díaz', curso: '3er A', puntos: 28, aciertos_exactos: 7, diferencia_goles: 7, fecha_envio: new Date(Date.now() - 86400000 * 6).toISOString() },
       { id: 'mock-7', nombre: 'Thiago Silva', curso: '4to B', puntos: 25, aciertos_exactos: 6, diferencia_goles: 7, fecha_envio: new Date(Date.now() - 86400000 * 7).toISOString() }
     ];
-    initialMock.sort((a, b) => b.puntos - a.puntos || b.aciertos_exactos - a.aciertos_exactos || b.diferencia_goles - a.diferencia_goles);
+    initialMock.sort((a, b) => b.puntos - a.puntos || b.aciertos_exactos - a.aciertos_exactos || a.diferencia_goles - b.diferencia_goles);
     localStorage.setItem(MOCK_PARTICIPANTES_KEY, JSON.stringify(initialMock));
     return initialMock;
   }
   try {
     const list = JSON.parse(data);
-    list.sort((a, b) => b.puntos - a.puntos || b.aciertos_exactos - a.aciertos_exactos || b.diferencia_goles - a.diferencia_goles);
+    list.sort((a, b) => b.puntos - a.puntos || b.aciertos_exactos - a.aciertos_exactos || a.diferencia_goles - b.diferencia_goles);
     return list;
   } catch (e) {
     return [];
@@ -198,9 +198,10 @@ async function obtenerClasificacion() {
   const { data, error } = await _supabase
     .from('participantes')
     .select('id, nombre, curso, puntos, aciertos_exactos, diferencia_goles, fecha_envio')
-    .order('puntos', { ascending: false })
-    .order('aciertos_exactos', { ascending: false })
-    .order('diferencia_goles', { ascending: false });
+    .order('puntos', { ascending: false })           // más puntos primero
+    .order('aciertos_exactos', { ascending: false }) // más aciertos exactos primero
+    .order('diferencia_goles', { ascending: true })  // MENOR diferencia primero (desempate)
+    .order('fecha_envio', { ascending: true });      // desempate final: quien envió antes
   if (error) {
     console.error('Error al obtener clasificación:', error);
     return [];
