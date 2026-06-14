@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRODE Mundial FIFA 2026</title>
+  <meta name="description"
+    content="Participa en el PRODE del Mundial FIFA 2026. Realiza tus predicciones de la fase de grupos y compite en el ranking de estudiantes.">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+  <!-- Background patterns -->
+  <div class="bg-wrap">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+  </div>
+
+  <!-- Config Banner (shown if Supabase URL/Key are defaults) -->
+  <div class="config-banner hidden" id="config-banner">
+    ⚠️ <span><strong>Supabase no configurado.</strong> Edita <code>js/supabase-client.js</code> con tus credenciales de
+      Supabase.</span>
+    <button id="btn-close-banner" aria-label="Cerrar">&times;</button>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="#inicio" class="nav-brand">
+        <img src="images/logo.png" alt="Logo Mundial" class="brand-logo">
+        <div class="brand-text">
+          <span class="brand-title">MUNDIAL</span>
+          <span class="brand-sub">FIFA 2026 PRODE</span>
+        </div>
+      </a>
+
+      <button class="hamburger" id="hamburger-btn" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#inicio" class="nav-link" id="nav-link-inicio">Inicio</a></li>
+        <li><a href="#prediccion" class="nav-link" id="nav-link-prediccion">Hacer Predicción</a></li>
+        <li><a href="#ranking" class="nav-link" id="nav-link-ranking">Ranking</a></li>
+        <li><a href="#reglamento" class="nav-link" id="nav-link-reglamento">Reglamento</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Main Content Areas -->
+  <main class="main-content">
+
+    <!-- PAGE 1: INICIO (HOME) -->
+    <section id="inicio" class="page">
+      <div class="hero">
+        <div class="hero-content">
+          <span class="hero-badge">PREDICCION MUNDIAL 2026</span>
+          <div class="hero-title">
+            <span class="hero-title-main">FIFA 26</span>
+            <span class="hero-title-year">WORLD CUP</span>
+          </div>
+          <p class="hero-subtitle">MUESTRA TUS CONOCIMIENTOS FUTBOLÍSTICOS</p>
+
+          <!-- Countdown -->
+          <div class="countdown-section">
+            <p class="countdown-label">EL MUNDIAL EMPIEZA EN:</p>
+            <div class="countdown-timer" id="countdown">
+              <div class="countdown-item">
+                <span class="countdown-num" id="cd-days">00</span>
+                <span class="countdown-unit">DÍAS</span>
+              </div>
+              <span class="countdown-sep">:</span>
+              <div class="countdown-item">
+                <span class="countdown-num" id="cd-hours">00</span>
+                <span class="countdown-unit">HORAS</span>
+              </div>
+              <span class="countdown-sep">:</span>
+              <div class="countdown-item">
+                <span class="countdown-num" id="cd-mins">00</span>
+                <span class="countdown-unit">MINS</span>
+              </div>
+              <span class="countdown-sep">:</span>
+              <div class="countdown-item">
+                <span class="countdown-num" id="cd-secs">00</span>
+                <span class="countdown-unit">SEGS</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-actions">
+            <a href="#prediccion" class="btn-primary">HACER MI PREDICCIÓN</a>
+            <a href="#reglamento" class="btn-secondary">VER REGLAMENTO</a>
+          </div>
+        </div>
+
+        <!-- Rotating Trophy & Ball Orbit -->
+        <div class="hero-visual">
+          <div class="trophy-glow"></div>
+          <div class="trophy-container">
+            <img src="images/copa.png" alt="Trofeo Mundial" class="trophy-image">
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <!-- Quick standings overview -->
+      <div class="section-container">
+        <div class="section-header">
+          <h2 class="section-title">TOP PARTICIPANTES</h2>
+          <button class="btn-refresh" id="btn-refresh-home">ACTUALIZAR</button>
+        </div>
+
+        <div class="standings-card">
+          <div class="table-wrapper">
+            <table class="standings-table">
+              <thead>
+                <tr>
+                  <th style="width: 70px;">POS</th>
+                  <th class="th-name">PARTICIPANTE</th>
+                  <th>CURSO</th>
+                  <th style="width: 80px;">PTS</th>
+                  <th>ACIERTO EXACTO</th>
+                  <th>DIF. GOLES</th>
+                </tr>
+              </thead>
+              <tbody id="home-standings-body">
+                <!-- Dynamic content -->
+                <tr>
+                  <td colspan="6" class="table-loading">
+                    <span class="loading-spinner"></span>Cargando posiciones...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE 2: PREDICCIONES -->
+    <section id="prediccion" class="page">
+      <div class="page-hero">
+        <h1 class="page-title">HACER PREDICCIÓN</h1>
+        <p class="page-subtitle">Pronostica los resultados de la Fase de Grupos</p>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar-container">
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="prediction-progress-bar" style="width: 0%;"></div>
+          </div>
+          <span class="progress-text" id="prediction-progress-text">0 / 64 partidos pronosticados</span>
+        </div>
+      </div>
+
+      <!-- Group tabs/nav -->
+      <div class="group-nav" id="group-nav-container">
+        <!-- Dynamic Group tabs A to L -->
+      </div>
+
+      <!-- Predictions Form -->
+      <div class="prediccion-container">
+        <form id="prode-form" onsubmit="return false;">
+
+          <!-- Container for the selected/all groups -->
+          <div id="groups-container">
+            <!-- Dynamic groups with match cards -->
+          </div>
+
+          <!-- Personal Info Card -->
+          <div class="personal-info-card">
+            <h3 class="info-card-title">INFORMACIÓN DEL PARTICIPANTE</h3>
+            <div id="block-message-container"></div>
+            <div class="info-form-grid">
+              <div class="form-group">
+                <label for="user-nombre">NOMBRE Y APELLIDO *</label>
+                <input type="text" id="user-nombre" placeholder="Ej: Juan Pérez" required>
+              </div>
+              <div class="form-group">
+                <label for="user-curso">CURSO / GRADO *</label>
+                <input type="text" id="user-curso" placeholder="Ej: 5to Año A" required>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-submit" id="btn-submit-prode">
+              <span class="submit-icon">✉️</span>
+              <span class="submit-text">ENVIAR MI PREDICCION</span>
+            </button>
+            <p class="submit-note">* Campos obligatorios. Asegúrate de completar todos los pronósticos para guardar tu
+              Prode.</p>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- PAGE 3: RANKING -->
+    <section id="ranking" class="page">
+      <div class="page-hero">
+        <h1 class="page-title">RANKING GENERAL</h1>
+        <p class="page-subtitle">Tabla de posiciones de toda la liga del PRODE</p>
+      </div>
+
+      <div class="section-container">
+        <!-- Podium for Top 3 -->
+        <div class="podium-container" id="podium-container">
+          <!-- Dynamic podium -->
+        </div>
+
+        <!-- Full standings table -->
+        <div class="section-header">
+          <h2 class="section-title">TABLA COMPLETA</h2>
+          <button class="btn-refresh" id="btn-refresh-ranking">ACTUALIZAR</button>
+        </div>
+
+        <div class="standings-card">
+          <div class="table-wrapper">
+            <table class="standings-table">
+              <thead>
+                <tr>
+                  <th style="width: 70px;">POS</th>
+                  <th class="th-name">PARTICIPANTE</th>
+                  <th>CURSO</th>
+                  <th style="width: 80px;">PTS</th>
+                  <th>ACIERTO EXACTO</th>
+                  <th>DIF. GOLES</th>
+                </tr>
+              </thead>
+              <tbody id="ranking-table-body">
+                <!-- Dynamic content -->
+                <tr>
+                  <td colspan="6" class="table-loading">
+                    <span class="loading-spinner"></span>Cargando posiciones...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE 4: REGLAMENTO -->
+    <section id="reglamento" class="page">
+      <div class="page-hero">
+        <h1 class="page-title">REGLAMENTO</h1>
+        <p class="page-subtitle">Cómo sumar puntos y reglas del juego</p>
+      </div>
+
+      <div class="section-container">
+        <div class="rules-grid">
+
+          <div class="rule-card">
+            <span class="rule-icon"></span>
+            <h3 class="rule-title">Acierto Exacto</h3>
+            <p class="rule-desc">Si pronosticas el resultado exacto del partido (ejemplo: pronóstico 2-1 y el partido
+              termina 2-1).</p>
+            <div class="rule-pts">
+              <span>+3</span> <small>PUNTOS</small>
+            </div>
+          </div>
+
+          <div class="rule-card">
+            <span class="rule-icon"></span>
+            <h3 class="rule-title">Ganador o Empate</h3>
+            <p class="rule-desc">Si acertás el resultado general (quién gana o si empatan) pero no el marcador exacto
+              (ejemplo: pronóstico 2-0 y termina 3-1, o pronóstico 1-1 y termina 2-2).</p>
+            <div class="rule-pts">
+              <span>+1</span> <small>PUNTO</small>
+            </div>
+          </div>
+
+          <div class="rule-card">
+            <span class="rule-icon"></span>
+            <h3 class="rule-title">Sin Aciertos</h3>
+            <p class="rule-desc">Si no acertás el ganador ni el empate del encuentro.</p>
+            <div class="rule-pts">
+              <span>0</span> <small>PUNTOS</small>
+            </div>
+          </div>
+
+          <div class="rule-card">
+            <span class="rule-icon"></span>
+            <h3 class="rule-title">Costo de participacion</h3>
+            <p class="rule-desc">Se tiene que pagar 10 Bs para participar, se puede pagar por qr o efectivo</p>
+            <div class="rule-pts">
+            </div>
+          </div>
+
+          <div class="rule-card" style="grid-column: 1 / -1;">
+            <span class="rule-icon">ℹ️</span>
+            <h3 class="rule-title">Criterios de Desempate</h3>
+            <p class="rule-desc">En caso de igualdad de puntos en la tabla de posiciones, el ranking se definirá bajo
+              los siguientes criterios:</p>
+            <ul
+              style="margin-top: 10px; margin-left: 20px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 8px;">
+              <li>1. Mayor cantidad de <strong>Aciertos Exactos</strong> (marcador exacto, +3 pts).</li>
+              <li>2. Mayor cantidad de <strong>Diferencia de Goles Acertada</strong> (se usa como criterio de
+                desempate).</li>
+              <li>3. Fecha y hora de envío del formulario (quien lo envió antes tiene prioridad).</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <span class="footer-brand">FIFA 2026 PRODE San Agustin</span>
+      <div class="footer-links">
+        <a href="#inicio">Inicio</a>
+        <a href="#prediccion">Hacer Predicción</a>
+        <a href="#ranking">Ranking</a>
+        <a href="#reglamento">Reglamento</a>
+      </div>
+      <span class="footer-info">San Agustin</span>
+    </div>
+  </footer>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">
+    <div class="toast-icon" id="toast-icon">✅</div>
+    <div>
+      <div class="toast-title" id="toast-title">Éxito</div>
+      <div class="toast-msg" id="toast-msg">Tu predicción se ha guardado correctamente.</div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/fixture.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/home.js"></script>
+  <script src="js/predictions.js"></script>
+  <script src="js/ranking.js"></script>
+  <script src="js/rules.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
