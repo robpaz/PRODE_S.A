@@ -7,12 +7,42 @@ y el proyecto sigue (de forma aproximada) [Versionado Semántico](https://semver
 
 ## [Sin publicar]
 
+## [1.1.0] - 2026-06-14
+
+Implementación de las mejoras del roadmap (`docs/SPECS_IMPROVEMENTS.md`),
+de forma retrocompatible con el sitio en producción.
+
 ### Añadido
-- Documentación técnica en `docs/`:
-  - `docs/SPECS.md` — especificación del estado actual (as-built).
-  - `docs/SPECS_IMPROVEMENTS.md` — propuesta de mejoras y roadmap.
-- `README.md` con descripción, stack, puesta en marcha y despliegue.
-- `CHANGELOG.md` (este archivo).
+- **Corrección/puntuación automática** (1.1): tabla `resultados`, vista `v_ranking`
+  y RPC `as_recalcular_ranking()` en `sql/setup.sql`; ejecutable desde el nuevo
+  **panel admin** (`admin.html` + `js/admin.js`).
+- **Cierre por hora de partido** (1.2): campo `kickoff` por partido en `js/fixture.js`
+  (cierre conservador al fin del día del partido, hora de Bolivia) y bloqueo de inputs
+  de partidos ya cerrados (flag `LOCK_BY_KICKOFF`).
+- **Edición del Prode** (1.3): soporte de UPSERT de predicciones y modo edición en
+  el formulario (flag `ALLOW_EDIT`, desactivado por defecto hasta migrar la BD).
+- **Edge Function `submit-prode`** (2.1): inserción server-side con validación y
+  rate-limit por IP (`supabase/functions/`), opcional vía `USE_EDGE_FUNCTION`; incluye
+  sección de RLS endurecida en `sql/setup.sql`.
+- **Configuración central** (3.1): `js/config.js` (fechas, puntaje, costo, flags, keys LS).
+- **Utilidades compartidas** (3.2): `js/utils.js` (`escapeHTML`, `partidoCerrado`,
+  `formatDif`, `calcularPuntos`, `tableSkeleton`), eliminando duplicación.
+- **Página "Mi Prode"** (4.1): `#miprode` + `js/miprode.js` con pronósticos y puntos por partido.
+- **Borrador local** (4.2): autosave de marcadores/nombre/curso (`PERSIST_DRAFT`).
+- **Modal de confirmación** previo al envío (4.3, `CONFIRM_BEFORE_SUBMIT`).
+- **Filtro por jornada** y botón "siguiente vacío" en predicciones (4.4).
+- **Skeletons** de carga en tablas (4.5).
+- **Accesibilidad** (5.1): `aria-label` en inputs de marcador, `role="dialog"` en el modal.
+- **Métricas** (6.1): contador de participantes en el inicio y desglose por curso en admin.
+- **Manejo de errores uniforme** (6.2): `ProdeApp.handleError`.
+- **SEO/PWA** (7.1, 7.2): Open Graph/Twitter, favicon, `manifest.webmanifest`, `sw.js`.
+- **Toolchain** (3.4): ESLint, Prettier y workflow de CI (`.github/workflows/ci.yml`).
+- Documentación técnica en `docs/` (`SPECS.md`, `SPECS_IMPROVEMENTS.md`), `README.md` y `CHANGELOG.md`.
+
+### Notas de migración
+- Para activar resultados/recálculo/edición hay que ejecutar el `sql/setup.sql` actualizado.
+- `ALLOW_EDIT` y `USE_EDGE_FUNCTION` quedan en `false` por defecto para no afectar el sitio
+  en producción hasta completar la migración/despliegue correspondiente.
 
 ## [1.0.0] - 2026-06-14
 

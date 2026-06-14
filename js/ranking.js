@@ -23,13 +23,7 @@ window.ProdeRanking = (function () {
     }
     
     if (tbody) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="6" class="table-loading">
-            <span class="loading-spinner"></span>Cargando posiciones...
-          </td>
-        </tr>
-      `;
+      tbody.innerHTML = window.ProdeUtils.tableSkeleton(6, 8);
     }
 
     try {
@@ -128,7 +122,7 @@ window.ProdeRanking = (function () {
               <td class="td-curso">${escapeHTML(p.curso)}</td>
               <td><span class="pts-value">${p.puntos}</span></td>
               <td>${p.aciertos_exactos}</td>
-              <td>${p.diferencia_goles >= 0 ? '+' : ''}${p.diferencia_goles}</td>
+              <td>${window.ProdeUtils.formatDif(p.diferencia_goles)}</td>
             </tr>
           `;
         });
@@ -149,18 +143,7 @@ window.ProdeRanking = (function () {
     }
   }
 
-  function escapeHTML(str) {
-    if (!str) return '';
-    return str.replace(/[&<>'"]/g, 
-      tag => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;'
-      }[tag] || tag)
-    );
-  }
+  const escapeHTML = (s) => window.ProdeUtils.escapeHTML(s);
 
   return {
     init: init,

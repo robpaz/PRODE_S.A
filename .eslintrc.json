@@ -1,0 +1,48 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "script"
+  },
+  "extends": "eslint:recommended",
+  "globals": {
+    "supabase": "readonly",
+    "CONFIG": "writable",
+    "ProdeUtils": "writable",
+    "ProdeApp": "writable",
+    "ProdeHome": "writable",
+    "ProdePredictions": "writable",
+    "ProdeRanking": "writable",
+    "ProdeRules": "writable",
+    "ProdeMiProde": "writable",
+    "EQUIPOS": "readonly",
+    "FIXTURE_GRUPOS": "readonly",
+    "TODOS_LOS_PARTIDOS": "readonly",
+    "TOTAL_PARTIDOS": "readonly",
+    "PARTIDOS_POR_ID": "readonly",
+    "flagUrl": "readonly",
+    "initSupabase": "readonly",
+    "supabaseConfigurado": "readonly",
+    "verificarIpExistente": "readonly",
+    "insertarParticipante": "readonly",
+    "insertarPredicciones": "readonly",
+    "actualizarPredicciones": "readonly",
+    "obtenerClasificacion": "readonly",
+    "contarParticipantes": "readonly",
+    "contarPorCurso": "readonly",
+    "obtenerParticipante": "readonly",
+    "obtenerPrediccionesDeParticipante": "readonly",
+    "obtenerResultados": "readonly",
+    "guardarResultado": "readonly",
+    "recalcularRanking": "readonly",
+    "enviarProdeViaEdge": "readonly"
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-console": "off"
+  }
+}

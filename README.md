@@ -17,8 +17,18 @@ ingresan su nombre y curso, y compiten en un **ranking** con sistema de puntos.
 - 📊 **Barra de progreso** en vivo de pronósticos completados.
 - 🏆 **Ranking** con podio Top 3 y tabla completa.
 - 🚫 **Anti-duplicados**: un Prode por dispositivo (localStorage) y por IP.
+- 🔒 **Cierre por hora de partido**: los partidos ya jugados se bloquean automáticamente.
+- 📝 **Borrador automático**, **modal de confirmación** y **filtro por jornada**.
+- 👤 **Mi Prode**: revisá tus pronósticos y los puntos que vas sumando.
+- 🛠️ **Panel admin** (`admin.html`): carga de resultados, recálculo de ranking y métricas por curso.
+- 📲 **PWA instalable** (offline del app shell) + metadatos sociales (Open Graph/Twitter).
 - 🎨 Tema oscuro con identidad visual FIFA 2026 (verdes + dorado), responsive.
 - 🧪 **Modo demo** automático con datos de prueba si Supabase no está configurado.
+
+> Varias funciones avanzadas se controlan por flags en `js/config.js`
+> (`LOCK_BY_KICKOFF`, `PERSIST_DRAFT`, `CONFIRM_BEFORE_SUBMIT`, `ALLOW_EDIT`,
+> `USE_EDGE_FUNCTION`). `ALLOW_EDIT` y `USE_EDGE_FUNCTION` quedan en `false` hasta
+> ejecutar el `sql/setup.sql` actualizado / desplegar la Edge Function.
 
 ## 🧮 Sistema de puntos
 
@@ -42,20 +52,34 @@ ingresan su nombre y curso, y compiten en un **ranking** con sistema de puntos.
 
 ```
 PRODE_S.A/
-├── index.html          # Estructura de las 4 secciones (SPA por hash)
+├── index.html          # SPA por hash (Inicio, Predicción, Mi Prode, Ranking, Reglamento)
+├── admin.html          # Panel admin (resultados, recálculo, métricas)
+├── manifest.webmanifest, sw.js   # PWA
 ├── css/styles.css      # Design system + estilos
 ├── js/
-│   ├── fixture.js          # Equipos + 64 partidos
-│   ├── supabase-client.js  # Configuración + capa de datos + modo mock
-│   ├── home.js             # Inicio (countdown + top 5)
-│   ├── predictions.js      # Formulario de pronósticos
+│   ├── config.js           # Configuración central (fechas, puntaje, flags)
+│   ├── utils.js            # Utilidades compartidas
+│   ├── fixture.js          # Equipos + 64 partidos + kickoff
+│   ├── supabase-client.js  # Capa de datos + modo mock
+│   ├── home.js             # Inicio (countdown + top 5 + métricas)
+│   ├── predictions.js      # Formulario (locks, borrador, modal, jornadas, edición)
 │   ├── ranking.js          # Podio + tabla
-│   ├── rules.js            # Reglamento (placeholder)
-│   └── app.js              # Router por hash + toasts + bootstrap
+│   ├── miprode.js          # "Mi Prode"
+│   ├── rules.js            # Reglamento (puntaje desde config)
+│   ├── admin.js            # Panel admin
+│   └── app.js              # Router por hash + toasts + SW + bootstrap
+├── supabase/functions/submit-prode/   # Edge Function (anti-spam, opcional)
 ├── images/             # logo.png, copa.png
-├── sql/setup.sql       # Creación de tablas + RLS en Supabase
+├── sql/setup.sql       # Tablas, RLS, resultados, vista y RPC de corrección
 └── docs/               # SPECS.md (estado actual) y SPECS_IMPROVEMENTS.md (mejoras)
 ```
+
+### Panel admin
+
+`admin.html` permite cargar los resultados oficiales, recalcular el ranking
+(`as_recalcular_ranking`) y ver métricas por curso. Protegido por una passphrase
+del lado del cliente (editable en `js/admin.js`, constante `ADMIN_PASS`) — barrera
+básica, no seguridad fuerte. Requiere el `sql/setup.sql` actualizado aplicado.
 
 ---
 

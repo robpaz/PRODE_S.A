@@ -287,10 +287,51 @@ const FIXTURE_GRUPOS = [
   },
 ];
 
+// ============================================================
+// KICKOFF / CIERRE POR HORA DE PARTIDO
+// ------------------------------------------------------------
+// Mapea cada fecha legible del fixture a una fecha ISO de cierre.
+// Por defecto el cierre es al final del día del partido en hora de
+// Bolivia (UTC-4) → día siguiente 03:59:59Z. Es un default conservador:
+// no bloquea durante el día del partido, pero impide pronosticar
+// partidos de días ya pasados. Se puede reemplazar por la hora exacta
+// del kickoff de cada partido cuando se conozca (campo match.kickoff).
+// ============================================================
+
+const FECHA_A_FIN_DE_DIA_UTC = {
+  'Dom 14 Jun': '2026-06-15T03:59:59Z',
+  'Lun 15 Jun': '2026-06-16T03:59:59Z',
+  'Mar 16 Jun': '2026-06-17T03:59:59Z',
+  'Mié 17 Jun': '2026-06-18T03:59:59Z',
+  'Jue 18 Jun': '2026-06-19T03:59:59Z',
+  'Vie 19 Jun': '2026-06-20T03:59:59Z',
+  'Sáb 20 Jun': '2026-06-21T03:59:59Z',
+  'Dom 21 Jun': '2026-06-22T03:59:59Z',
+  'Lun 22 Jun': '2026-06-23T03:59:59Z',
+  'Mar 23 Jun': '2026-06-24T03:59:59Z',
+  'Mié 24 Jun': '2026-06-25T03:59:59Z',
+  'Jue 25 Jun': '2026-06-26T03:59:59Z',
+  'Vie 26 Jun': '2026-06-27T03:59:59Z',
+  'Sáb 27 Jun': '2026-06-28T03:59:59Z',
+};
+
+// Enriquecer cada partido con su kickoff (cierre) ISO si no lo tiene definido.
+FIXTURE_GRUPOS.forEach(g => {
+  g.partidos.forEach(m => {
+    if (!m.kickoff && FECHA_A_FIN_DE_DIA_UTC[m.fecha]) {
+      m.kickoff = FECHA_A_FIN_DE_DIA_UTC[m.fecha];
+    }
+  });
+});
+
 // Flat list of all 64 included matches
 const TODOS_LOS_PARTIDOS = FIXTURE_GRUPOS.flatMap(g => g.partidos);
 
 // Total match count
 const TOTAL_PARTIDOS = TODOS_LOS_PARTIDOS.length; // 64
+
+// Índice rápido id → partido
+const PARTIDOS_POR_ID = {};
+TODOS_LOS_PARTIDOS.forEach(m => { PARTIDOS_POR_ID[m.id] = m; });
 
 console.log(`✅ Fixture cargado: ${TOTAL_PARTIDOS} partidos (desde Dom 14 Jun)`);

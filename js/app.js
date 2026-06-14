@@ -84,7 +84,15 @@ window.ProdeApp = (function () {
       if (window.ProdeRanking) window.ProdeRanking.init();
     } else if (hash === '#reglamento') {
       if (window.ProdeRules) window.ProdeRules.init();
+    } else if (hash === '#miprode') {
+      if (window.ProdeMiProde) window.ProdeMiProde.init();
     }
+  }
+
+  // Helper uniforme de manejo de errores: loguea y muestra toast.
+  function handleError(context, err, userMsg) {
+    console.error(`[${context}]`, err);
+    showToast('Error', userMsg || 'Ocurrió un error. Intentá de nuevo.', true);
   }
 
   // DOMContentLoaded
@@ -119,10 +127,18 @@ window.ProdeApp = (function () {
     // 4. Listen to hash change & navigate
     window.addEventListener('hashchange', router);
     router();
+
+    // 5. Registrar Service Worker (PWA) — solo en http(s), no en file://
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      navigator.serviceWorker.register('sw.js').catch(err => {
+        console.warn('No se pudo registrar el Service Worker:', err);
+      });
+    }
   });
 
   return {
     showToast: showToast,
+    handleError: handleError,
     router: router
   };
 })();

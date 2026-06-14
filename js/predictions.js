@@ -3,25 +3,52 @@
 // ============================================================
 
 window.ProdePredictions = (function () {
-  let activeGroup = 'A'; // Default group tab
+  let activeGroup = 'A';       // tab de grupo activo
+  let activeJornada = 'all';   // filtro de jornada: 'all' | '1' | '2' | '3'
 
   let userIp = null;
-  let isBlocked = false;
+  let isBlocked = false;       // bloqueo duro (sin edición posible)
+  let editMode = false;        // editando un Prode ya enviado
+  let editParticipanteId = null;
+
+  const U = () => window.ProdeUtils;
+  const C = () => window.CONFIG || {};
+  const LS = () => (C().LS || {});
+
+  // Partidos que aún se pueden pronosticar (kickoff no pasó).
+  function partidosEditables() {
+    return TODOS_LOS_PARTIDOS.filter(m => !U().partidoCerrado(m));
+  }
 
   async function init() {
     renderGroupTabs();
+    renderJornadaFilter();
     renderFixture();
     setupEventListeners();
-    updateProgress();
 
-    // 1. Verificar bloqueo por localStorage local
-    if (localStorage.getItem('prode_enviado') === 'true') {
-      isBlocked = true;
-      aplicarBloqueoDeFormulario('dispositivo');
+    const token = localStorage.getItem(LS().TOKEN || 'prode_token');
+    const enviado = localStorage.getItem(LS().ENVIADO || 'prode_enviado') === 'true';
+
+    // 1. Editar Prode existente (si está permitido y hay token)
+    if (enviado && token && C().ALLOW_EDIT) {
+      await entrarModoEdicion(token);
+      updateProgress();
       return;
     }
 
-    // 2. Obtener IP pública y verificar en la base de datos
+    // 2. Bloqueo por dispositivo
+    if (enviado) {
+      isBlocked = true;
+      aplicarBloqueoDeFormulario('dispositivo');
+      updateProgress();
+      return;
+    }
+
+    // 3. Restaurar borrador local
+    if (C().PERSIST_DRAFT) restaurarBorrador();
+    updateProgress();
+
+    // 4. Verificar IP y bloquear si ya envió desde esta red
     userIp = await obtenerIpPublica();
     if (userIp) {
       const ipExiste = await verificarIpExistente(userIp);
@@ -32,10 +59,52 @@ window.ProdePredictions = (function () {
     }
   }
 
+  // ---- MODO EDICIÓN ----------------------------------------
+  async function entrarModoEdicion(participanteId) {
+    editMode = true;
+    editParticipanteId = participanteId;
+
+    try {
+      const participante = await obtenerParticipante(participanteId);
+      const preds = await obtenerPrediccionesDeParticipante(participanteId);
+
+      if (participante) {
+        const nombreEl = document.getElementById('user-nombre');
+        const cursoEl = document.getElementById('user-curso');
+        if (nombreEl) nombreEl.value = participante.nombre || '';
+        if (cursoEl) cursoEl.value = participante.curso || '';
+      }
+
+      preds.forEach(p => {
+        const il = document.getElementById(`input-${p.partido_id}-local`);
+        const iv = document.getElementById(`input-${p.partido_id}-visitante`);
+        if (il) il.value = p.goles_local;
+        if (iv) iv.value = p.goles_visitante;
+        checkMatchCardFilled(p.partido_id);
+      });
+
+      // Banner informativo
+      const msgContainer = document.getElementById('block-message-container');
+      if (msgContainer) {
+        msgContainer.innerHTML = `
+          <div class="info-banner-edit">
+            ✏️ <strong>Modo edición:</strong> ya enviaste tu Prode. Podés ajustar los partidos
+            que todavía no se jugaron y guardar los cambios.
+          </div>`;
+      }
+      const submitBtn = document.getElementById('btn-submit-prode');
+      if (submitBtn) {
+        submitBtn.querySelector('.submit-text').textContent = 'GUARDAR CAMBIOS';
+      }
+    } catch (e) {
+      console.error('Error al entrar en modo edición:', e);
+    }
+  }
+
   async function obtenerIpPublica() {
     try {
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 3500); // 3.5s timeout
+      const id = setTimeout(() => controller.abort(), 3500);
       const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
       clearTimeout(id);
       const data = await res.json();
@@ -58,15 +127,12 @@ window.ProdePredictions = (function () {
       const msgText = motivo === 'dispositivo'
         ? 'Ya has registrado tu Prode desde este dispositivo móvil o computadora.'
         : 'Ya se ha enviado una predicción desde tu conexión de red local (IP).';
-
       msgContainer.innerHTML = `
-        <div style="color: #f87171; border: 1px solid rgba(248,113,113,0.3); padding: 16px; border-radius: var(--r-md); background: rgba(239,68,68,0.08); font-family: var(--font-head); font-weight: 600; font-size: 0.85rem; text-align: center; margin-bottom: 24px;">
+        <div class="block-banner">
           🚫 <strong>Acceso Limitado:</strong> ${msgText}
-        </div>
-      `;
+        </div>`;
     }
 
-    // Deshabilitar todos los campos de marcador
     const inputs = document.querySelectorAll('.score-input, #user-nombre, #user-curso');
     inputs.forEach(input => {
       input.disabled = true;
@@ -74,12 +140,10 @@ window.ProdePredictions = (function () {
       input.style.cursor = 'not-allowed';
     });
 
-    // Deshabilitar botón de rellenar al azar
     const autoFillBtn = document.getElementById('btn-auto-fill');
     if (autoFillBtn) {
       autoFillBtn.disabled = true;
       autoFillBtn.style.opacity = '0.5';
-      autoFillBtn.style.cursor = 'not-allowed';
     }
   }
 
@@ -88,33 +152,49 @@ window.ProdePredictions = (function () {
     if (!navContainer) return;
 
     let html = '';
-    // Groups A to L
     FIXTURE_GRUPOS.forEach(g => {
       const isCurrent = g.grupo === activeGroup;
       html += `
         <button type="button" class="group-nav-btn ${isCurrent ? 'current' : ''}" data-group="${g.grupo}">
           GRUPO ${g.grupo}
-        </button>
-      `;
+        </button>`;
     });
-    // Add "VER TODOS" option
     html += `
       <button type="button" class="group-nav-btn ${activeGroup === 'all' ? 'current' : ''}" data-group="all">
         VER TODOS
-      </button>
-    `;
+      </button>`;
 
     navContainer.innerHTML = html;
 
-    // Attach click events
-    const buttons = navContainer.querySelectorAll('.group-nav-btn');
-    buttons.forEach(btn => {
+    navContainer.querySelectorAll('.group-nav-btn').forEach(btn => {
       btn.onclick = function () {
-        buttons.forEach(b => b.classList.remove('current'));
+        navContainer.querySelectorAll('.group-nav-btn').forEach(b => b.classList.remove('current'));
         btn.classList.add('current');
-
         activeGroup = btn.getAttribute('data-group');
-        filterGroupsVisibility();
+        filterVisibility();
+      };
+    });
+  }
+
+  function renderJornadaFilter() {
+    const container = document.getElementById('jornada-filter-container');
+    if (!container) return;
+    const jornadas = [
+      { v: 'all', t: 'TODAS' },
+      { v: '1', t: 'JORNADA 1' },
+      { v: '2', t: 'JORNADA 2' },
+      { v: '3', t: 'JORNADA 3' },
+    ];
+    container.innerHTML = jornadas.map(j =>
+      `<button type="button" class="jornada-btn ${activeJornada === j.v ? 'current' : ''}" data-jornada="${j.v}">${j.t}</button>`
+    ).join('');
+
+    container.querySelectorAll('.jornada-btn').forEach(btn => {
+      btn.onclick = function () {
+        container.querySelectorAll('.jornada-btn').forEach(b => b.classList.remove('current'));
+        btn.classList.add('current');
+        activeJornada = btn.getAttribute('data-jornada');
+        filterVisibility();
       };
     });
   }
@@ -138,294 +218,346 @@ window.ProdePredictions = (function () {
             </div>
             ${noteHtml}
           </div>
-          <div class="grupo-matches">
-      `;
+          <div class="grupo-matches">`;
 
       g.partidos.forEach(match => {
         const local = EQUIPOS[match.local];
         const visitante = EQUIPOS[match.visitante];
+        const cerrado = U().partidoCerrado(match);
+        const disabledAttr = cerrado ? 'disabled' : '';
+        const lockBadge = cerrado ? `<span class="match-lock" title="Cerrado: el partido ya comenzó">🔒 CERRADO</span>` : '';
 
         html += `
-          <div class="match-card" id="match-card-${match.id}">
-            <!-- Local Team -->
+          <div class="match-card ${cerrado ? 'locked' : ''}" id="match-card-${match.id}" data-jornada="${match.jornada}">
             <div class="team-local">
-              <span class="team-name">${local.nombre}</span>
-              <img src="${flagUrl(local.bandera)}" class="team-flag" alt="${local.nombre}">
+              <span class="team-name">${U().escapeHTML(local.nombre)}</span>
+              <img src="${flagUrl(local.bandera)}" class="team-flag" alt="${U().escapeHTML(local.nombre)}">
             </div>
-            <!-- Score Inputs -->
             <div class="score-block">
-              <input type="number" min="0" class="score-input" placeholder="-" 
-                     data-match-id="${match.id}" data-team-type="local" 
-                     id="input-${match.id}-local">
+              <input type="number" min="0" max="30" class="score-input" placeholder="-"
+                     data-match-id="${match.id}" data-team-type="local"
+                     id="input-${match.id}-local" ${disabledAttr}
+                     aria-label="Goles de ${U().escapeHTML(local.nombre)}">
               <span class="score-sep">:</span>
-              <input type="number" min="0" class="score-input" placeholder="-" 
-                     data-match-id="${match.id}" data-team-type="visitante" 
-                     id="input-${match.id}-visitante">
+              <input type="number" min="0" max="30" class="score-input" placeholder="-"
+                     data-match-id="${match.id}" data-team-type="visitante"
+                     id="input-${match.id}-visitante" ${disabledAttr}
+                     aria-label="Goles de ${U().escapeHTML(visitante.nombre)}">
             </div>
-            <!-- Visitante Team -->
             <div class="team-visitante">
-              <img src="${flagUrl(visitante.bandera)}" class="team-flag" alt="${visitante.nombre}">
-              <span class="team-name">${visitante.nombre}</span>
+              <img src="${flagUrl(visitante.bandera)}" class="team-flag" alt="${U().escapeHTML(visitante.nombre)}">
+              <span class="team-name">${U().escapeHTML(visitante.nombre)}</span>
             </div>
-            <!-- Match Meta -->
             <div class="match-meta">
               <span class="match-jornada">JORNADA ${match.jornada}</span>
               <span class="match-date">${match.fecha}</span>
+              ${lockBadge}
             </div>
-          </div>
-        `;
+          </div>`;
       });
 
-      html += `
-          </div>
-        </div>
-      `;
+      html += `</div></div>`;
     });
 
-    // Add a quick random generator button for testing/wow effect
+    // Botón de relleno aleatorio (oculto, para pruebas)
     html = `
       <div style="display: none;">
-        <button type="button" class="btn-secondary" id="btn-auto-fill" style="padding: 10px 20px; font-size: 0.8rem; border-color: var(--border-gold);">
-          🎲 COMPLETAR AL AZAR (PRUEBAS)
-        </button>
-      </div>
-    ` + html;
+        <button type="button" class="btn-secondary" id="btn-auto-fill">🎲 COMPLETAR AL AZAR (PRUEBAS)</button>
+      </div>` + html;
 
     container.innerHTML = html;
 
-    // Filter which groups are visible
-    filterGroupsVisibility();
+    filterVisibility();
 
-    // Attach input listeners for live progress updates
-    const inputs = container.querySelectorAll('.score-input');
-    inputs.forEach(input => {
+    container.querySelectorAll('.score-input').forEach(input => {
       input.oninput = function () {
-        // Enforce integer & non-negative
         if (input.value !== '') {
           let val = parseInt(input.value, 10);
           if (isNaN(val) || val < 0) val = 0;
+          if (val > 30) val = 30;
           input.value = val;
         }
-
-        // Highlight match card if filled
         const matchId = input.getAttribute('data-match-id');
         checkMatchCardFilled(matchId);
-
-        // Update progress bar
         updateProgress();
+        if (C().PERSIST_DRAFT && !editMode) guardarBorrador();
       };
     });
 
-    // Attach random generator button
     const autoFillBtn = document.getElementById('btn-auto-fill');
-    if (autoFillBtn) {
-      autoFillBtn.onclick = fillRandomPredictions;
-    }
+    if (autoFillBtn) autoFillBtn.onclick = fillRandomPredictions;
   }
 
-  function filterGroupsVisibility() {
-    const sections = document.querySelectorAll('.grupo-section');
-    sections.forEach(sec => {
+  function filterVisibility() {
+    document.querySelectorAll('.grupo-section').forEach(sec => {
       const groupId = sec.id.replace('grupo-section-', '');
-      if (activeGroup === 'all' || activeGroup === groupId) {
-        sec.classList.remove('hidden');
-      } else {
-        sec.classList.add('hidden');
-      }
+      const grupoVisible = (activeGroup === 'all' || activeGroup === groupId);
+      sec.classList.toggle('hidden', !grupoVisible);
+
+      // Filtrar tarjetas por jornada dentro del grupo visible
+      let visibleEnSeccion = 0;
+      sec.querySelectorAll('.match-card').forEach(card => {
+        const j = card.getAttribute('data-jornada');
+        const jornadaVisible = (activeJornada === 'all' || activeJornada === j);
+        card.classList.toggle('hidden', !jornadaVisible);
+        if (jornadaVisible) visibleEnSeccion++;
+      });
+      // Ocultar grupo si la jornada filtrada no tiene partidos en él
+      if (grupoVisible && visibleEnSeccion === 0) sec.classList.add('hidden');
     });
   }
 
   function checkMatchCardFilled(matchId) {
     const card = document.getElementById(`match-card-${matchId}`);
     if (!card) return;
-
     const valLocal = document.getElementById(`input-${matchId}-local`).value;
     const valVisitante = document.getElementById(`input-${matchId}-visitante`).value;
-
-    if (valLocal !== '' && valVisitante !== '') {
-      card.classList.add('filled');
-    } else {
-      card.classList.remove('filled');
-    }
+    card.classList.toggle('filled', valLocal !== '' && valVisitante !== '');
   }
 
   function updateProgress() {
-    const totalMatches = TODOS_LOS_PARTIDOS.length;
+    const editables = partidosEditables();
+    const totalMatches = editables.length;
     let filledCount = 0;
 
-    TODOS_LOS_PARTIDOS.forEach(match => {
+    editables.forEach(match => {
       const valLocal = document.getElementById(`input-${match.id}-local`).value;
       const valVisitante = document.getElementById(`input-${match.id}-visitante`).value;
-      if (valLocal !== '' && valVisitante !== '') {
-        filledCount++;
-      }
+      if (valLocal !== '' && valVisitante !== '') filledCount++;
     });
 
     const progressFill = document.getElementById('prediction-progress-bar');
     const progressText = document.getElementById('prediction-progress-text');
-
     if (progressFill) {
-      const percent = (filledCount / totalMatches) * 100;
+      const percent = totalMatches > 0 ? (filledCount / totalMatches) * 100 : 100;
       progressFill.style.width = `${percent}%`;
     }
     if (progressText) {
       progressText.textContent = `${filledCount} / ${totalMatches} partidos pronosticados`;
     }
-
     return { filledCount, totalMatches };
   }
 
-  function fillRandomPredictions() {
-    TODOS_LOS_PARTIDOS.forEach(match => {
-      const inputLocal = document.getElementById(`input-${match.id}-local`);
-      const inputVisitante = document.getElementById(`input-${match.id}-visitante`);
+  // ---- BORRADOR LOCAL --------------------------------------
+  function guardarBorrador() {
+    const draft = { scores: {}, nombre: '', curso: '' };
+    TODOS_LOS_PARTIDOS.forEach(m => {
+      const l = document.getElementById(`input-${m.id}-local`);
+      const v = document.getElementById(`input-${m.id}-visitante`);
+      if (l && v && (l.value !== '' || v.value !== '')) {
+        draft.scores[m.id] = { l: l.value, v: v.value };
+      }
+    });
+    const nombreEl = document.getElementById('user-nombre');
+    const cursoEl = document.getElementById('user-curso');
+    if (nombreEl) draft.nombre = nombreEl.value;
+    if (cursoEl) draft.curso = cursoEl.value;
+    try { localStorage.setItem(LS().DRAFT || 'prode_draft', JSON.stringify(draft)); } catch (e) {}
+  }
 
-      if (inputLocal && inputVisitante) {
-        inputLocal.value = Math.floor(Math.random() * 4); // 0 to 3
-        inputVisitante.value = Math.floor(Math.random() * 4); // 0 to 3
+  function restaurarBorrador() {
+    let draft;
+    try { draft = JSON.parse(localStorage.getItem(LS().DRAFT || 'prode_draft') || 'null'); } catch (e) { draft = null; }
+    if (!draft) return;
+    Object.entries(draft.scores || {}).forEach(([id, sc]) => {
+      const l = document.getElementById(`input-${id}-local`);
+      const v = document.getElementById(`input-${id}-visitante`);
+      if (l && !l.disabled) l.value = sc.l;
+      if (v && !v.disabled) v.value = sc.v;
+      checkMatchCardFilled(id);
+    });
+    const nombreEl = document.getElementById('user-nombre');
+    const cursoEl = document.getElementById('user-curso');
+    if (nombreEl && draft.nombre) nombreEl.value = draft.nombre;
+    if (cursoEl && draft.curso) cursoEl.value = draft.curso;
+  }
+
+  function limpiarBorrador() {
+    try { localStorage.removeItem(LS().DRAFT || 'prode_draft'); } catch (e) {}
+  }
+
+  function fillRandomPredictions() {
+    partidosEditables().forEach(match => {
+      const il = document.getElementById(`input-${match.id}-local`);
+      const iv = document.getElementById(`input-${match.id}-visitante`);
+      if (il && iv && !il.disabled) {
+        il.value = Math.floor(Math.random() * 4);
+        iv.value = Math.floor(Math.random() * 4);
         checkMatchCardFilled(match.id);
       }
     });
     updateProgress();
-    window.ProdeApp.showToast('🎯 Completado', 'Se han completado todos los partidos de manera aleatoria.', false);
+    if (C().PERSIST_DRAFT && !editMode) guardarBorrador();
+    window.ProdeApp.showToast('🎯 Completado', 'Se completaron los partidos abiertos de forma aleatoria.', false);
+  }
+
+  function irAlSiguienteVacio() {
+    for (const match of partidosEditables()) {
+      const l = document.getElementById(`input-${match.id}-local`).value;
+      const v = document.getElementById(`input-${match.id}-visitante`).value;
+      if (l === '' || v === '') {
+        const group = match.id.charAt(0);
+        if (activeGroup !== 'all' && activeGroup !== group) activeGroup = group;
+        if (activeJornada !== 'all' && activeJornada !== String(match.jornada)) activeJornada = 'all';
+        renderGroupTabs();
+        renderJornadaFilter();
+        filterVisibility();
+        const card = document.getElementById(`match-card-${match.id}`);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('highlight');
+          setTimeout(() => card.classList.remove('highlight'), 2000);
+        }
+        return;
+      }
+    }
+    window.ProdeApp.showToast('✅ Todo completo', 'No quedan partidos abiertos sin pronosticar.', false);
   }
 
   function setupEventListeners() {
     const form = document.getElementById('prode-form');
-    if (!form) return;
+    if (form) {
+      form.onsubmit = function (e) {
+        e.preventDefault();
+        iniciarEnvio();
+      };
+    }
+    const nextBtn = document.getElementById('btn-next-empty');
+    if (nextBtn) nextBtn.onclick = irAlSiguienteVacio;
 
-    form.onsubmit = async function (e) {
-      e.preventDefault();
+    const nombreEl = document.getElementById('user-nombre');
+    const cursoEl = document.getElementById('user-curso');
+    [nombreEl, cursoEl].forEach(el => {
+      if (el) el.addEventListener('input', () => { if (C().PERSIST_DRAFT && !editMode) guardarBorrador(); });
+    });
 
-      if (isBlocked) {
-        window.ProdeApp.showToast('Acceso limitado', 'No puedes enviar múltiples predicciones.', true);
-        return;
-      }
+    // Modal de confirmación
+    const modalConfirm = document.getElementById('confirm-modal-ok');
+    const modalCancel = document.getElementById('confirm-modal-cancel');
+    if (modalConfirm) modalConfirm.onclick = () => { cerrarModal(); guardarProde(); };
+    if (modalCancel) modalCancel.onclick = cerrarModal;
+  }
 
-      const { filledCount, totalMatches } = updateProgress();
-      if (filledCount < totalMatches) {
-        window.ProdeApp.showToast(
-          'Faltan Pronósticos',
-          `Te faltan completar ${totalMatches - filledCount} partidos para enviar tu Prode.`,
-          true
-        );
-        // Navigate/scroll to first empty match
-        for (const match of TODOS_LOS_PARTIDOS) {
-          const valLocal = document.getElementById(`input-${match.id}-local`).value;
-          const valVisitante = document.getElementById(`input-${match.id}-visitante`).value;
-          if (valLocal === '' || valVisitante === '') {
-            // Find parent group and switch tab if not "all"
-            const group = match.id.charAt(0);
-            if (activeGroup !== 'all' && activeGroup !== group) {
-              activeGroup = group;
-              renderGroupTabs();
-              filterGroupsVisibility();
-            }
-            // Scroll to the card
-            const card = document.getElementById(`match-card-${match.id}`);
-            if (card) {
-              card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              card.style.borderColor = 'red';
-              setTimeout(() => {
-                card.style.borderColor = '';
-              }, 2000);
-            }
-            break;
+  // Valida y, si corresponde, abre el modal de confirmación.
+  function iniciarEnvio() {
+    if (isBlocked) {
+      window.ProdeApp.showToast('Acceso limitado', 'No puedes enviar múltiples predicciones.', true);
+      return;
+    }
+
+    const { filledCount, totalMatches } = updateProgress();
+    if (filledCount < totalMatches) {
+      window.ProdeApp.showToast('Faltan Pronósticos',
+        `Te faltan ${totalMatches - filledCount} partidos abiertos por completar.`, true);
+      irAlSiguienteVacio();
+      return;
+    }
+
+    const nombre = (document.getElementById('user-nombre').value || '').trim();
+    const curso = (document.getElementById('user-curso').value || '').trim();
+    if (!nombre || !curso) {
+      window.ProdeApp.showToast('Campos vacíos', 'El Nombre y Curso son obligatorios.', true);
+      return;
+    }
+
+    if (C().CONFIRM_BEFORE_SUBMIT) {
+      abrirModalConfirmacion(nombre, curso, filledCount);
+    } else {
+      guardarProde();
+    }
+  }
+
+  function abrirModalConfirmacion(nombre, curso, filled) {
+    const modal = document.getElementById('confirm-modal');
+    if (!modal) { guardarProde(); return; }
+    const resumen = document.getElementById('confirm-modal-summary');
+    if (resumen) {
+      resumen.innerHTML = `
+        Vas a ${editMode ? 'actualizar' : 'enviar'} <strong>${filled}</strong> pronósticos como
+        <strong>${U().escapeHTML(nombre)}</strong> (${U().escapeHTML(curso)}).`;
+    }
+    modal.classList.add('show');
+  }
+
+  function cerrarModal() {
+    const modal = document.getElementById('confirm-modal');
+    if (modal) modal.classList.remove('show');
+  }
+
+  // Ejecuta el guardado real (insert o edición).
+  async function guardarProde() {
+    const nombre = (document.getElementById('user-nombre').value || '').trim();
+    const curso = (document.getElementById('user-curso').value || '').trim();
+
+    const predictionsData = TODOS_LOS_PARTIDOS.map(match => {
+      const l = document.getElementById(`input-${match.id}-local`).value;
+      const v = document.getElementById(`input-${match.id}-visitante`).value;
+      if (l === '' || v === '') return null;
+      return { partido_id: match.id, goles_local: parseInt(l, 10), goles_visitante: parseInt(v, 10) };
+    }).filter(Boolean);
+
+    const submitBtn = document.getElementById('btn-submit-prode');
+    const origHTML = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="loading-spinner"></span> ${editMode ? 'GUARDANDO...' : 'ENVIANDO...'}`;
+
+    try {
+      if (editMode) {
+        // --- EDICIÓN ---
+        await actualizarPredicciones(editParticipanteId, predictionsData);
+        window.ProdeApp.showToast('✅ Cambios guardados', 'Tu Prode fue actualizado correctamente.', false);
+      } else {
+        // --- ENVÍO NUEVO ---
+        if (userIp) {
+          const ipExiste = await verificarIpExistente(userIp);
+          if (ipExiste) {
+            isBlocked = true;
+            aplicarBloqueoDeFormulario('ip');
+            window.ProdeApp.showToast('Acceso limitado', 'Esta conexión IP ya envió su Prode.', true);
+            return;
           }
         }
-        return;
-      }
 
-      // Collect data
-      const nombre = document.getElementById('user-nombre').value.trim();
-      const curso = document.getElementById('user-curso').value.trim();
-
-      if (!nombre || !curso) {
-        window.ProdeApp.showToast('Campos vacíos', 'El Nombre y Curso son obligatorios.', true);
-        return;
-      }
-
-      // Re-verificar IP inmediatamente antes de guardar
-      if (userIp) {
-        const ipExiste = await verificarIpExistente(userIp);
-        if (ipExiste) {
-          isBlocked = true;
-          aplicarBloqueoDeFormulario('ip');
-          window.ProdeApp.showToast('Acceso limitado', 'Esta conexión IP ya envió su Prode.', true);
-          return;
+        let participanteId;
+        if (C().USE_EDGE_FUNCTION && window.supabaseConfigurado) {
+          participanteId = await enviarProdeViaEdge(nombre, curso, predictionsData);
+        } else {
+          participanteId = await insertarParticipante(nombre, curso, userIp);
+          await insertarPredicciones(participanteId, predictionsData);
         }
-      }
 
-      const predictionsData = TODOS_LOS_PARTIDOS.map(match => {
-        const goles_local = parseInt(document.getElementById(`input-${match.id}-local`).value, 10);
-        const goles_visitante = parseInt(document.getElementById(`input-${match.id}-visitante`).value, 10);
-        return {
-          partido_id: match.id,
-          goles_local,
-          goles_visitante
-        };
-      });
-
-      const submitBtn = document.getElementById('btn-submit-prode');
-      const origText = submitBtn.innerHTML;
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = `<span class="loading-spinner"></span> ENVIANDO...`;
-
-      try {
-        // Step 1: Insert participant (with IP)
-        const participanteId = await insertarParticipante(nombre, curso, userIp);
-
-        // Step 2: Insert predictions
-        await insertarPredicciones(participanteId, predictionsData);
-
-        // Bloquear localmente en este dispositivo
-        localStorage.setItem('prode_enviado', 'true');
+        localStorage.setItem(LS().ENVIADO || 'prode_enviado', 'true');
+        localStorage.setItem(LS().TOKEN || 'prode_token', participanteId);
+        limpiarBorrador();
         isBlocked = true;
-        aplicarBloqueoDeFormulario('dispositivo');
 
-        // If in mock mode, assign them random points so they appear on leaderboard
+        // En modo mock, asignar puntaje aleatorio para poblar el ranking demo.
         if (!window.supabaseConfigurado) {
-          const mockParticipantes = JSON.parse(localStorage.getItem('prode_participantes_mock') || '[]');
+          const key = LS().PARTICIPANTES_MOCK || 'prode_participantes_mock';
+          const mockParticipantes = JSON.parse(localStorage.getItem(key) || '[]');
           const idx = mockParticipantes.findIndex(p => p.id === participanteId);
           if (idx !== -1) {
-            // Give them a random score to make it look like they played and got scores!
-            mockParticipantes[idx].puntos = Math.floor(Math.random() * 30) + 15; // 15 to 45 pts
+            mockParticipantes[idx].puntos = Math.floor(Math.random() * 30) + 15;
             mockParticipantes[idx].aciertos_exactos = Math.floor(mockParticipantes[idx].puntos / 3.5);
             mockParticipantes[idx].diferencia_goles = Math.floor((mockParticipantes[idx].puntos - (mockParticipantes[idx].aciertos_exactos * 3)) + Math.random() * 5);
-            localStorage.setItem('prode_participantes_mock', JSON.stringify(mockParticipantes));
+            localStorage.setItem(key, JSON.stringify(mockParticipantes));
           }
         }
 
-        window.ProdeApp.showToast(
-          '🏆 ¡Prode Enviado!',
-          'Tus pronósticos se han guardado. Revisa la tabla de posiciones.',
-          false
-        );
-
-        // Reset form
-        form.reset();
-        TODOS_LOS_PARTIDOS.forEach(m => checkMatchCardFilled(m.id));
-        updateProgress();
-
-        // Refresh views
-        if (window.ProdeHome) window.ProdeHome.refreshStandings();
-        if (window.ProdeRanking) window.ProdeRanking.refreshRanking();
-
-        // Navigate to standings
-        setTimeout(() => {
-          window.location.hash = '#ranking';
-        }, 1500);
-
-      } catch (err) {
-        console.error('Error submitting prode:', err);
-        window.ProdeApp.showToast('Error de conexión', 'No se pudo guardar la predicción. Inténtalo de nuevo.', true);
-      } finally {
-        submitBtn.disabled = false;
-        if (!isBlocked) {
-          submitBtn.innerHTML = origText;
-        }
+        window.ProdeApp.showToast('🏆 ¡Prode Enviado!', 'Tus pronósticos se guardaron. Revisá la tabla de posiciones.', false);
+        aplicarBloqueoDeFormulario('dispositivo');
       }
-    };
+
+      if (window.ProdeHome) window.ProdeHome.refreshStandings();
+      if (window.ProdeRanking) window.ProdeRanking.refreshRanking();
+
+      setTimeout(() => { window.location.hash = editMode ? '#miprode' : '#ranking'; }, 1400);
+
+    } catch (err) {
+      window.ProdeApp.handleError('guardarProde', err, 'No se pudo guardar la predicción. Inténtalo de nuevo.');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = origHTML;
+    }
   }
 
   return {

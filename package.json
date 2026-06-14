@@ -1,0 +1,15 @@
+{
+  "name": "prode-mundial-fifa-2026",
+  "version": "1.1.0",
+  "description": "PRODE Mundial FIFA 2026 — juego de pronósticos del colegio San Agustín.",
+  "private": true,
+  "scripts": {
+    "lint": "eslint js/",
+    "format": "prettier --write \"**/*.{js,css,json,html}\"",
+    "format:check": "prettier --check \"js/**/*.js\""
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.0"
+  }
+}

@@ -8,18 +8,32 @@ window.ProdeHome = (function () {
   function init() {
     initCountdown();
     renderHomeStandings();
+    renderParticipantCount();
 
     const refreshBtn = document.getElementById('btn-refresh-home');
     if (refreshBtn) {
       refreshBtn.onclick = function () {
         renderHomeStandings();
+        renderParticipantCount();
       };
     }
   }
 
+  async function renderParticipantCount() {
+    const el = document.getElementById('hero-participant-count');
+    if (!el) return;
+    try {
+      const total = await contarParticipantes();
+      el.textContent = total;
+    } catch (e) {
+      el.textContent = '—';
+    }
+  }
+
   function initCountdown() {
-    // Official World Cup 2026 Start: June 11, 2026
-    const targetDate = new Date('2026-06-11T17:00:00Z').getTime();
+    // Inicio oficial del Mundial (configurable en js/config.js)
+    const inicio = (window.CONFIG && window.CONFIG.MUNDIAL_INICIO) || '2026-06-11T17:00:00Z';
+    const targetDate = new Date(inicio).getTime();
 
     if (countdownInterval) clearInterval(countdownInterval);
 
@@ -60,13 +74,7 @@ window.ProdeHome = (function () {
     const tbody = document.getElementById('home-standings-body');
     if (!tbody) return;
 
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="table-loading">
-          <span class="loading-spinner"></span>Cargando posiciones...
-        </td>
-      </tr>
-    `;
+    tbody.innerHTML = window.ProdeUtils.tableSkeleton(6, 5);
 
     try {
       const participantes = await obtenerClasificacion();
@@ -100,7 +108,7 @@ window.ProdeHome = (function () {
             <td class="td-curso">${escapeHTML(p.curso)}</td>
             <td><span class="pts-value">${p.puntos}</span></td>
             <td>${p.aciertos_exactos}</td>
-            <td>${p.diferencia_goles >= 0 ? '+' : ''}${p.diferencia_goles}</td>
+            <td>${window.ProdeUtils.formatDif(p.diferencia_goles)}</td>
           </tr>
         `;
       });
@@ -118,18 +126,7 @@ window.ProdeHome = (function () {
     }
   }
 
-  function escapeHTML(str) {
-    if (!str) return '';
-    return str.replace(/[&<>'"]/g, 
-      tag => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;'
-      }[tag] || tag)
-    );
-  }
+  const escapeHTML = (s) => window.ProdeUtils.escapeHTML(s);
 
   return {
     init: init,

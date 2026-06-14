@@ -7,6 +7,26 @@
   <title>PRODE Mundial FIFA 2026</title>
   <meta name="description"
     content="Participa en el PRODE del Mundial FIFA 2026. Realiza tus predicciones de la fase de grupos y compite en el ranking de estudiantes.">
+
+  <!-- Favicon & PWA -->
+  <link rel="icon" href="images/logo.png">
+  <link rel="apple-touch-icon" href="images/logo.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0d5c2e">
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="PRODE Mundial FIFA 2026 — San Agustín">
+  <meta property="og:description"
+    content="Pronosticá los partidos del Mundial FIFA 2026 y competí en el ranking de estudiantes.">
+  <meta property="og:image" content="images/copa.png">
+  <meta property="og:url" content="https://robpaz.github.io/PRODE_S.A/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PRODE Mundial FIFA 2026 — San Agustín">
+  <meta name="twitter:description"
+    content="Pronosticá los partidos del Mundial FIFA 2026 y competí en el ranking de estudiantes.">
+  <meta name="twitter:image" content="images/copa.png">
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,6 +73,7 @@
       <ul class="nav-links" id="nav-links">
         <li><a href="#inicio" class="nav-link" id="nav-link-inicio">Inicio</a></li>
         <li><a href="#prediccion" class="nav-link" id="nav-link-prediccion">Hacer Predicción</a></li>
+        <li><a href="#miprode" class="nav-link" id="nav-link-miprode">Mi Prode</a></li>
         <li><a href="#ranking" class="nav-link" id="nav-link-ranking">Ranking</a></li>
         <li><a href="#reglamento" class="nav-link" id="nav-link-reglamento">Reglamento</a></li>
       </ul>
@@ -72,6 +93,9 @@
             <span class="hero-title-year">WORLD CUP</span>
           </div>
           <p class="hero-subtitle">MUESTRA TUS CONOCIMIENTOS FUTBOLÍSTICOS</p>
+          <p class="hero-participants">
+            <span id="hero-participant-count">—</span> participantes ya están jugando
+          </p>
 
           <!-- Countdown -->
           <div class="countdown-section">
@@ -169,6 +193,14 @@
         <!-- Dynamic Group tabs A to L -->
       </div>
 
+      <!-- Jornada filter + quick nav -->
+      <div class="prediccion-toolbar">
+        <div class="jornada-filter" id="jornada-filter-container">
+          <!-- Dynamic jornada buttons -->
+        </div>
+        <button type="button" class="btn-next-empty" id="btn-next-empty">⏭️ Siguiente vacío</button>
+      </div>
+
       <!-- Predictions Form -->
       <div class="prediccion-container">
         <form id="prode-form" onsubmit="return false;">
@@ -201,6 +233,19 @@
               Prode.</p>
           </div>
         </form>
+      </div>
+    </section>
+
+    <!-- PAGE: MI PRODE -->
+    <section id="miprode" class="page">
+      <div class="page-hero">
+        <h1 class="page-title">MI PRODE</h1>
+        <p class="page-subtitle">Tus pronósticos y los puntos que vas sumando</p>
+      </div>
+      <div class="section-container">
+        <div id="miprode-container">
+          <!-- Dynamic: prode del participante -->
+        </div>
       </div>
     </section>
 
@@ -266,7 +311,7 @@
             <p class="rule-desc">Si pronosticas el resultado exacto del partido (ejemplo: pronóstico 2-1 y el partido
               termina 2-1).</p>
             <div class="rule-pts">
-              <span>+3</span> <small>PUNTOS</small>
+              <span id="rule-pts-exacto">+3</span> <small>PUNTOS</small>
             </div>
           </div>
 
@@ -276,7 +321,7 @@
             <p class="rule-desc">Si acertás el resultado general (quién gana o si empatan) pero no el marcador exacto
               (ejemplo: pronóstico 2-0 y termina 3-1, o pronóstico 1-1 y termina 2-2).</p>
             <div class="rule-pts">
-              <span>+1</span> <small>PUNTO</small>
+              <span id="rule-pts-resultado">+1</span> <small>PUNTO</small>
             </div>
           </div>
 
@@ -285,14 +330,14 @@
             <h3 class="rule-title">Sin Aciertos</h3>
             <p class="rule-desc">Si no acertás el ganador ni el empate del encuentro.</p>
             <div class="rule-pts">
-              <span>0</span> <small>PUNTOS</small>
+              <span id="rule-pts-sin-acierto">0</span> <small>PUNTOS</small>
             </div>
           </div>
 
           <div class="rule-card">
             <span class="rule-icon"></span>
             <h3 class="rule-title">Costo de participacion</h3>
-            <p class="rule-desc">Se tiene que pagar 10 Bs para participar, se puede pagar por qr o efectivo</p>
+            <p class="rule-desc">Se tiene que pagar <strong id="rule-costo">10 Bs</strong> para participar, se puede pagar por qr o efectivo</p>
             <div class="rule-pts">
             </div>
           </div>
@@ -324,12 +369,27 @@
       <div class="footer-links">
         <a href="#inicio">Inicio</a>
         <a href="#prediccion">Hacer Predicción</a>
+        <a href="#miprode">Mi Prode</a>
         <a href="#ranking">Ranking</a>
         <a href="#reglamento">Reglamento</a>
+        <a href="admin.html">Admin</a>
       </div>
       <span class="footer-info">San Agustin</span>
     </div>
   </footer>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <h3 class="modal-title" id="confirm-modal-title">Confirmar envío</h3>
+      <p class="modal-summary" id="confirm-modal-summary"></p>
+      <p class="modal-note">Una vez enviado podrás editarlo solo hasta que empiecen los partidos.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="confirm-modal-cancel">Cancelar</button>
+        <button type="button" class="btn-primary" id="confirm-modal-ok">Confirmar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast Notification -->
   <div class="toast" id="toast">
@@ -341,12 +401,15 @@
   </div>
 
   <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
   <script src="js/fixture.js"></script>
   <script src="js/supabase-client.js"></script>
   <script src="js/home.js"></script>
   <script src="js/predictions.js"></script>
   <script src="js/ranking.js"></script>
   <script src="js/rules.js"></script>
+  <script src="js/miprode.js"></script>
   <script src="js/app.js"></script>
 </body>
 

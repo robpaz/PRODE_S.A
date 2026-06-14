@@ -76,7 +76,7 @@ function initSupabase() {
 
 // ---- HELPERS MOCK PARA DESARROLLO LOCAL SIN CONFIGURAR SUPABASE ----
 function getMockParticipantes() {
-  const MOCK_PARTICIPANTES_KEY = 'prode_participantes_mock';
+  const MOCK_PARTICIPANTES_KEY = LS_PARTICIPANTES;
   let data = localStorage.getItem(MOCK_PARTICIPANTES_KEY);
   if (!data) {
     const initialMock = [
@@ -101,11 +101,19 @@ function getMockParticipantes() {
   }
 }
 
+// ---- KEYS DE localStorage (con fallback si CONFIG no cargó) --
+function _lsKey(name, fallback) {
+  return (window.CONFIG && window.CONFIG.LS && window.CONFIG.LS[name]) || fallback;
+}
+const LS_PARTICIPANTES = _lsKey('PARTICIPANTES_MOCK', 'prode_participantes_mock');
+const LS_IPS = _lsKey('IPS_MOCK', 'prode_ips_bloqueadas_mock');
+const LS_RESULTADOS = _lsKey('RESULTADOS_MOCK', 'prode_resultados_mock');
+
 // ---- VERIFICAR IP EXISTENTE ---------------------------------
 async function verificarIpExistente(ip) {
   if (!ip) return false;
   if (!supabaseConfigurado) {
-    const ipsBloqueadas = JSON.parse(localStorage.getItem('prode_ips_bloqueadas_mock') || '[]');
+    const ipsBloqueadas = JSON.parse(localStorage.getItem(LS_IPS) || '[]');
     return ipsBloqueadas.includes(ip);
   }
   try {
@@ -138,14 +146,14 @@ async function insertarParticipante(nombre, curso, ip) {
       diferencia_goles: 0
     };
     mockParticipantes.push(nuevo);
-    localStorage.setItem('prode_participantes_mock', JSON.stringify(mockParticipantes));
-    
+    localStorage.setItem(LS_PARTICIPANTES, JSON.stringify(mockParticipantes));
+
     // Guardar IP bloqueada localmente
     if (ip) {
-      const ipsBloqueadas = JSON.parse(localStorage.getItem('prode_ips_bloqueadas_mock') || '[]');
+      const ipsBloqueadas = JSON.parse(localStorage.getItem(LS_IPS) || '[]');
       if (!ipsBloqueadas.includes(ip)) {
         ipsBloqueadas.push(ip);
-        localStorage.setItem('prode_ips_bloqueadas_mock', JSON.stringify(ipsBloqueadas));
+        localStorage.setItem(LS_IPS, JSON.stringify(ipsBloqueadas));
       }
     }
     return id;
@@ -204,4 +212,144 @@ async function contarParticipantes() {
     .select('*', { count: 'exact', head: true });
   if (error) return 0;
   return count || 0;
+}
+
+// ---- ENVIAR PRODE (vía Edge Function, anti-spam) -----------
+// Devuelve el id del participante creado. Úsese cuando
+// CONFIG.USE_EDGE_FUNCTION === true.
+async function enviarProdeViaEdge(nombre, curso, predicciones) {
+  const fnName = (window.CONFIG && window.CONFIG.EDGE_FUNCTION_NAME) || 'submit-prode';
+  const { data, error } = await _supabase.functions.invoke(fnName, {
+    body: { nombre, curso, predicciones },
+  });
+  if (error) throw error;
+  if (data && data.error) throw new Error(data.error);
+  return data.id;
+}
+
+// ---- OBTENER predicciones de un participante (Mi Prode) ----
+async function obtenerPrediccionesDeParticipante(participanteId) {
+  if (!participanteId) return [];
+  if (!supabaseConfigurado) {
+    return JSON.parse(localStorage.getItem(`prode_predicciones_mock_${participanteId}`) || '[]');
+  }
+  const { data, error } = await _supabase
+    .from('predicciones')
+    .select('partido_id, goles_local, goles_visitante')
+    .eq('participante_id', participanteId);
+  if (error) {
+    console.error('Error al obtener predicciones:', error);
+    return [];
+  }
+  return data || [];
+}
+
+// ---- OBTENER un participante por id ------------------------
+async function obtenerParticipante(participanteId) {
+  if (!participanteId) return null;
+  if (!supabaseConfigurado) {
+    return getMockParticipantes().find(p => p.id === participanteId) || null;
+  }
+  const { data, error } = await _supabase
+    .from('participantes')
+    .select('id, nombre, curso, puntos, aciertos_exactos, diferencia_goles, fecha_envio')
+    .eq('id', participanteId)
+    .maybeSingle();
+  if (error) {
+    console.error('Error al obtener participante:', error);
+    return null;
+  }
+  return data;
+}
+
+// ---- ACTUALIZAR predicciones (editar Prode, UPSERT) --------
+async function actualizarPredicciones(participanteId, predicciones) {
+  if (!supabaseConfigurado) {
+    localStorage.setItem(`prode_predicciones_mock_${participanteId}`, JSON.stringify(predicciones));
+    return;
+  }
+  const rows = predicciones.map(p => ({
+    participante_id: participanteId,
+    partido_id: p.partido_id,
+    goles_local: p.goles_local,
+    goles_visitante: p.goles_visitante,
+  }));
+  const { error } = await _supabase
+    .from('predicciones')
+    .upsert(rows, { onConflict: 'participante_id,partido_id' });
+  if (error) throw error;
+}
+
+// ---- OBTENER resultados oficiales (corrección) -------------
+async function obtenerResultados() {
+  if (!supabaseConfigurado) {
+    return JSON.parse(localStorage.getItem(LS_RESULTADOS) || '[]');
+  }
+  const { data, error } = await _supabase
+    .from('resultados')
+    .select('partido_id, goles_local, goles_visitante, cerrado');
+  if (error) {
+    // Degradación elegante: si la tabla 'resultados' aún no existe
+    // (setup.sql no aplicado), se devuelve vacío sin romper la UI.
+    console.warn('Resultados no disponibles todavía:', error.message || error);
+    return [];
+  }
+  return data || [];
+}
+
+// ---- ADMIN: guardar/actualizar un resultado ----------------
+async function guardarResultado(partidoId, golesLocal, golesVisitante, cerrado = true) {
+  if (!supabaseConfigurado) {
+    const lista = JSON.parse(localStorage.getItem(LS_RESULTADOS) || '[]');
+    const idx = lista.findIndex(r => r.partido_id === partidoId);
+    const row = { partido_id: partidoId, goles_local: golesLocal, goles_visitante: golesVisitante, cerrado };
+    if (idx >= 0) lista[idx] = row; else lista.push(row);
+    localStorage.setItem(LS_RESULTADOS, JSON.stringify(lista));
+    return;
+  }
+  const { error } = await _supabase
+    .from('resultados')
+    .upsert([{ partido_id: partidoId, goles_local: golesLocal, goles_visitante: golesVisitante, cerrado, actualizado: new Date().toISOString() }], { onConflict: 'partido_id' });
+  if (error) throw error;
+}
+
+// ---- ADMIN: recalcular ranking (RPC) -----------------------
+async function recalcularRanking() {
+  if (!supabaseConfigurado) {
+    // En mock: recalcular en cliente contra resultados locales.
+    const resultados = JSON.parse(localStorage.getItem(LS_RESULTADOS) || '[]');
+    const mapR = {};
+    resultados.forEach(r => { mapR[r.partido_id] = r; });
+    const participantes = getMockParticipantes();
+    participantes.forEach(p => {
+      const preds = JSON.parse(localStorage.getItem(`prode_predicciones_mock_${p.id}`) || '[]');
+      let puntos = 0, exactos = 0, dif = 0;
+      preds.forEach(pred => {
+        const real = mapR[pred.partido_id];
+        if (!real) return;
+        const res = window.ProdeUtils.calcularPuntos(pred, real);
+        puntos += res.puntos;
+        if (res.exacto) exactos += 1;
+        dif += Math.abs((pred.goles_local - pred.goles_visitante) - (real.goles_local - real.goles_visitante));
+      });
+      p.puntos = puntos; p.aciertos_exactos = exactos; p.diferencia_goles = dif;
+    });
+    localStorage.setItem(LS_PARTICIPANTES, JSON.stringify(participantes));
+    return;
+  }
+  const { error } = await _supabase.rpc('as_recalcular_ranking');
+  if (error) throw error;
+}
+
+// ---- MÉTRICAS: conteo por curso ----------------------------
+async function contarPorCurso() {
+  const participantes = await obtenerClasificacion();
+  const mapa = {};
+  participantes.forEach(p => {
+    const c = (p.curso || 'Sin curso').trim();
+    mapa[c] = (mapa[c] || 0) + 1;
+  });
+  return Object.entries(mapa)
+    .map(([curso, total]) => ({ curso, total }))
+    .sort((a, b) => b.total - a.total);
 }

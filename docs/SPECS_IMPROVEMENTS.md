@@ -4,6 +4,19 @@
 > (estado actual). Cada mejora indica **problema**, **propuesta** y **prioridad**.
 > Fecha: 2026-06-14.
 
+## Estado de implementación (v1.1.0 — 2026-06-14)
+
+La mayoría de estas mejoras ya están **implementadas** de forma retrocompatible
+(ver `CHANGELOG.md`). Resumen:
+
+- ✅ Implementado: 1.1, 1.2 (cierre por hora, variante por-partido), 1.3, 2.1,
+  3.1, 3.2, 3.3 (parcial), 3.4, 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 6.1, 6.2, 7.1, 7.2.
+- ⏸️ No implementado por decisión: 1.2 *deadline global único*, 2.2, 2.3, 5.2.
+- ⚙️ Flags off por defecto hasta migrar BD/desplegar: `ALLOW_EDIT` (1.3),
+  `USE_EDGE_FUNCTION` (2.1).
+
+---
+
 ## Leyenda de prioridad
 
 | Nivel | Significado                                            |
