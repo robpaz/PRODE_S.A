@@ -7,6 +7,13 @@ y el proyecto sigue (de forma aproximada) [Versionado Semántico](https://semver
 
 ## [Sin publicar]
 
+### Corregido
+- **"Recalcular ranking" no actualizaba los puntos**: la función `as_recalcular_ranking()`
+  corría con los privilegios del rol `anon`, y la RLS de `participantes` no tiene política
+  `UPDATE`, por lo que el `UPDATE` se bloqueaba en silencio (devolvía 204 sin actualizar).
+  Se recreó la función como `SECURITY DEFINER` (con `SET search_path = public`) para que
+  actualice correctamente al invocarse desde el panel admin. Aplicado en prod y en `sql/setup.sql`.
+
 ### Cambiado
 - **Restricción de un Prode ahora es por navegador/dispositivo, no por IP** (resuelve el
   bloqueo de la red NAT del colegio, donde todos comparten una IP pública). Se quitó la

@@ -114,9 +114,14 @@ ORDER BY puntos DESC, aciertos_exactos DESC, diferencia_goles ASC, fecha_envio A
 --                    con resultado (criterio de desempate: menor es mejor).
 -- ============================================================
 
+-- IMPORTANTE: SECURITY DEFINER para que el UPDATE sobre 'participantes' funcione
+-- aunque la llame el rol anon (RLS no tiene política UPDATE para anon). Sin esto,
+-- el recálculo desde el panel admin "corre" (204) pero no actualiza ninguna fila.
 CREATE OR REPLACE FUNCTION as_recalcular_ranking()
 RETURNS void
 LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
 AS $$
   WITH calc AS (
     SELECT
