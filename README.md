@@ -140,6 +140,7 @@ de cada cambio.
 
 - [`docs/SPECS.md`](./docs/SPECS.md) — Especificación técnica del **estado actual**.
 - [`docs/SPECS_IMPROVEMENTS.md`](./docs/SPECS_IMPROVEMENTS.md) — **Propuesta de mejoras** y roadmap.
+- [`docs/REGLAMENTO.md`](./docs/REGLAMENTO.md) — **Reglamento del juego** (puntaje, desempates, participación).
 - [`CHANGELOG.md`](./CHANGELOG.md) — Historial de cambios.
 
 ---
