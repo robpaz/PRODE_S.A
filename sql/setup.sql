@@ -18,15 +18,21 @@ CREATE TABLE IF NOT EXISTS participantes (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   nombre           TEXT        NOT NULL,
   curso            TEXT        NOT NULL,
-  ip               TEXT        UNIQUE,
+  ip               TEXT,        -- solo registro/estadística; NO único (ver nota abajo)
   fecha_envio      TIMESTAMPTZ DEFAULT now(),
   puntos           INTEGER     DEFAULT 0,
   aciertos_exactos INTEGER     DEFAULT 0,
   diferencia_goles INTEGER     DEFAULT 0
 );
 
+-- La restricción de "un Prode por participante" es POR NAVEGADOR/DISPOSITIVO
+-- (localStorage en el cliente), NO por IP: en la red del colegio muchos alumnos
+-- comparten la misma IP pública, así que la IP no debe ser única ni bloquear.
+-- Si una instalación previa creó la columna como UNIQUE, quitar la restricción:
+ALTER TABLE participantes DROP CONSTRAINT IF EXISTS participantes_ip_key;
+
 -- Si ya existe la tabla y falta la columna 'ip':
--- ALTER TABLE participantes ADD COLUMN IF NOT EXISTS ip TEXT UNIQUE;
+-- ALTER TABLE participantes ADD COLUMN IF NOT EXISTS ip TEXT;
 
 CREATE TABLE IF NOT EXISTS predicciones (
   id               UUID    PRIMARY KEY DEFAULT gen_random_uuid(),

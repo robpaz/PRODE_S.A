@@ -7,6 +7,16 @@ y el proyecto sigue (de forma aproximada) [Versionado Semántico](https://semver
 
 ## [Sin publicar]
 
+### Cambiado
+- **Restricción de un Prode ahora es por navegador/dispositivo, no por IP** (resuelve el
+  bloqueo de la red NAT del colegio, donde todos comparten una IP pública). Se quitó la
+  verificación/bloqueo por IP en `js/predictions.js`, se eliminó la restricción `UNIQUE` de
+  `participantes.ip` (columna ahora solo de registro) y se actualizó `sql/setup.sql` y la
+  documentación. La IP se sigue guardando únicamente a modo de registro.
+
+### Añadido
+- `docs/REGLAMENTO.md` — reglamento del juego (puntaje, desempates, participación).
+
 ## [1.1.0] - 2026-06-14
 
 Implementación de las mejoras del roadmap (`docs/SPECS_IMPROVEMENTS.md`),

@@ -82,8 +82,10 @@ El ordenamiento del ranking aplica: `puntos` ⬇, luego `aciertos_exactos` ⬇, 
 - **Costo:** **10 Bs** por participación. Se puede pagar por **QR** o en **efectivo**.
   (Valor configurable en `js/config.js` → `CONFIG.COSTO_PARTICIPACION`.)
 - **Datos requeridos:** Nombre y Apellido + Curso / Grado.
-- **Un Prode por participante:** está limitado a un envío por **dispositivo** (localStorage)
-  y por **conexión de red / IP**. Ver detalle y limitaciones en [`SPECS.md`](./SPECS.md) §6.2 y §10.
+- **Un Prode por participante:** está limitado a un envío por **navegador / dispositivo**
+  (localStorage). **No** se restringe por IP, porque en la red del colegio muchos alumnos
+  comparten la misma IP pública. La IP se guarda solo a modo de registro. Ver detalle y
+  limitaciones en [`SPECS.md`](./SPECS.md) §6.2 y §10.
 - **Cierre por partido:** los partidos cuyo horario de cierre ya pasó quedan bloqueados y no
   se pueden pronosticar (ver `LOCK_BY_KICKOFF` en `js/config.js`).
 - **Edición:** si está habilitada (`CONFIG.ALLOW_EDIT`), el participante puede ajustar sus
@@ -108,4 +110,4 @@ El ordenamiento del ranking aplica: `puntos` ⬇, luego `aciertos_exactos` ⬇, 
 - ✅ Acierto de ganador/empate → **+1**
 - ❌ Sin acierto → **0**
 - 🥇 Desempate: aciertos exactos → diferencia de goles (menor mejor) → orden de envío
-- 💵 Participar: **10 Bs** (QR o efectivo), 1 Prode por persona/dispositivo/IP
+- 💵 Participar: **10 Bs** (QR o efectivo), 1 Prode por **navegador/dispositivo** (no por IP)

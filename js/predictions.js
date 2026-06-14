@@ -48,15 +48,10 @@ window.ProdePredictions = (function () {
     if (C().PERSIST_DRAFT) restaurarBorrador();
     updateProgress();
 
-    // 4. Verificar IP y bloquear si ya envió desde esta red
+    // 4. La restricción de un Prode es POR NAVEGADOR/DISPOSITIVO (localStorage),
+    //    NO por IP (varios alumnos comparten la misma IP en la red del colegio).
+    //    Se obtiene la IP solo para registro/estadística, sin bloquear.
     userIp = await obtenerIpPublica();
-    if (userIp) {
-      const ipExiste = await verificarIpExistente(userIp);
-      if (ipExiste) {
-        isBlocked = true;
-        aplicarBloqueoDeFormulario('ip');
-      }
-    }
   }
 
   // ---- MODO EDICIÓN ----------------------------------------
@@ -508,16 +503,7 @@ window.ProdePredictions = (function () {
         window.ProdeApp.showToast('✅ Cambios guardados', 'Tu Prode fue actualizado correctamente.', false);
       } else {
         // --- ENVÍO NUEVO ---
-        if (userIp) {
-          const ipExiste = await verificarIpExistente(userIp);
-          if (ipExiste) {
-            isBlocked = true;
-            aplicarBloqueoDeFormulario('ip');
-            window.ProdeApp.showToast('Acceso limitado', 'Esta conexión IP ya envió su Prode.', true);
-            return;
-          }
-        }
-
+        // Sin re-verificación por IP: la restricción es por navegador/dispositivo.
         let participanteId;
         if (C().USE_EDGE_FUNCTION && window.supabaseConfigurado) {
           participanteId = await enviarProdeViaEdge(nombre, curso, predictionsData);

@@ -209,9 +209,10 @@ luzca poblado (efecto demo).
 Flujo principal:
 
 1. **Render** de tabs de grupo (A–L + "VER TODOS") y de las `match-card` con dos inputs de marcador.
-2. **Anti-duplicados** (doble capa):
+2. **Anti-duplicados** (por navegador/dispositivo):
    - `localStorage['prode_enviado'] === 'true'` → bloquea (motivo `dispositivo`).
-   - IP pública vía `api.ipify.org` (timeout 3.5s) → `verificarIpExistente(ip)` → bloquea (motivo `ip`).
+   - La IP pública se obtiene (`api.ipify.org`) **solo para registro**, ya **no** bloquea
+     (en la red del colegio muchos alumnos comparten la misma IP). La columna `ip` ya no es única.
 3. **Barra de progreso** "N / 64 partidos pronosticados" en vivo según inputs completados.
 4. **Validación al enviar**:
    - Todos los 64 partidos completos (si no, hace scroll a la primera tarjeta vacía y resalta en rojo).
@@ -274,7 +275,8 @@ Sistema de puntos documentado en la UI:
 ## 9. Reglas de negocio (resumen)
 
 1. Solo se pronostican los **64 partidos** definidos (jornada 1 de A–D excluida).
-2. **Un Prode por dispositivo** (localStorage) **y por IP** (Supabase UNIQUE + verificación).
+2. **Un Prode por navegador/dispositivo** (localStorage). **No** se restringe por IP
+   (la columna `ip` se guarda solo como registro, sin unicidad).
 3. Se exigen **todos** los marcadores + nombre + curso para enviar.
 4. La **corrección y puntuación** NO está automatizada en el frontend: `puntos`,
    `aciertos_exactos` y `diferencia_goles` se cargan manualmente en Supabase. La app solo
@@ -286,8 +288,9 @@ Sistema de puntos documentado en la UI:
 ## 10. Limitaciones conocidas (estado actual)
 
 - **Sin corrección automática**: los puntos se cargan a mano en la BD.
-- **Anti-duplicado por IP** penaliza redes con NAT compartido (todo un colegio puede salir con
-  una sola IP pública → solo el primero podría enviar).
+- **Anti-duplicado por navegador/dispositivo** (localStorage): es la restricción elegida para
+  no penalizar la red NAT del colegio (una sola IP pública para todos). Contrapartida: se puede
+  eludir borrando el almacenamiento del navegador, usando modo incógnito u otro navegador/equipo.
 - **`SUPABASE_ANON_KEY` versionada** en el repo (es pública por diseño, pero la seguridad
   depende 100% de las políticas RLS, que hoy permiten `INSERT` anónimo sin límite).
 - **Sin validación anti-spam/captcha**: cualquiera puede insertar participantes vía API pública.
