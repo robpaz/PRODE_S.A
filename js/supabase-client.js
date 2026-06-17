@@ -360,3 +360,61 @@ async function contarPorCurso() {
     .map(([curso, total]) => ({ curso, total }))
     .sort((a, b) => b.total - a.total);
 }
+
+// ---- SOLICITUDES DE CAMBIO (desde el chat) -----------------
+async function crearSolicitudCambio(sol) {
+  // sol = { participante_id, participante_nombre, partido_id, partido_texto,
+  //         marcador_actual, marcador_solicitado, solicitante, motivo }
+  if (!supabaseConfigurado) {
+    const key = 'prode_solicitudes_mock';
+    const lista = JSON.parse(localStorage.getItem(key) || '[]');
+    lista.unshift({ id: Date.now(), estado: 'pendiente', created_at: new Date().toISOString(), ...sol });
+    localStorage.setItem(key, JSON.stringify(lista));
+    return;
+  }
+  const { error } = await _supabase.from('solicitudes_cambio').insert([sol]);
+  if (error) throw error;
+}
+
+async function obtenerSolicitudes() {
+  if (!supabaseConfigurado) {
+    return JSON.parse(localStorage.getItem('prode_solicitudes_mock') || '[]');
+  }
+  const { data, error } = await _supabase
+    .from('solicitudes_cambio')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('Error al obtener solicitudes:', error); return []; }
+  return data || [];
+}
+
+async function actualizarEstadoSolicitud(id, estado) {
+  if (!supabaseConfigurado) {
+    const key = 'prode_solicitudes_mock';
+    const lista = JSON.parse(localStorage.getItem(key) || '[]');
+    const s = lista.find(x => String(x.id) === String(id));
+    if (s) s.estado = estado;
+    localStorage.setItem(key, JSON.stringify(lista));
+    return;
+  }
+  const { error } = await _supabase.from('solicitudes_cambio').update({ estado }).eq('id', id);
+  if (error) throw error;
+}
+
+// ---- ADMIN: actualizar UNA predicción (editor manual) ------
+async function actualizarUnaPrediccion(participanteId, partidoId, golesLocal, golesVisitante) {
+  if (!supabaseConfigurado) {
+    const key = `prode_predicciones_mock_${participanteId}`;
+    const lista = JSON.parse(localStorage.getItem(key) || '[]');
+    const p = lista.find(x => x.partido_id === partidoId);
+    if (p) { p.goles_local = golesLocal; p.goles_visitante = golesVisitante; }
+    else lista.push({ partido_id: partidoId, goles_local: golesLocal, goles_visitante: golesVisitante });
+    localStorage.setItem(key, JSON.stringify(lista));
+    return;
+  }
+  const { error } = await _supabase
+    .from('predicciones')
+    .upsert([{ participante_id: participanteId, partido_id: partidoId, goles_local: golesLocal, goles_visitante: golesVisitante }],
+            { onConflict: 'participante_id,partido_id' });
+  if (error) throw error;
+}

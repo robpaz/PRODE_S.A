@@ -83,11 +83,57 @@ window.ProdeUtils = (function () {
     return html;
   }
 
+  // Normaliza texto: minúsculas, sin acentos, sin signos.
+  function normalizar(s) {
+    return String(s || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * Busca un partido del fixture a partir de texto libre.
+   * Acepta el id ("I2"), o nombres de equipos ("irak noruega", "argentina").
+   * Devuelve { match } único, o { opciones } si hay varios, o {} si nada.
+   * Requiere los globales TODOS_LOS_PARTIDOS y EQUIPOS.
+   */
+  function buscarPartido(texto) {
+    const q = normalizar(texto);
+    if (!q) return {};
+    const lista = (typeof TODOS_LOS_PARTIDOS !== 'undefined') ? TODOS_LOS_PARTIDOS : [];
+    const eq = (typeof EQUIPOS !== 'undefined') ? EQUIPOS : {};
+
+    // 1) por id exacto (ej "i2")
+    const porId = lista.find(m => normalizar(m.id) === q.replace(/ /g, ''));
+    if (porId) return { match: porId };
+
+    // 2) por nombres de equipos: cuenta cuántos equipos del partido aparecen
+    const palabras = q.split(' ').filter(w => w.length >= 3);
+    const candidatos = lista.map(m => {
+      const nl = normalizar(eq[m.local] ? eq[m.local].nombre : m.local);
+      const nv = normalizar(eq[m.visitante] ? eq[m.visitante].nombre : m.visitante);
+      const hayLocal = palabras.some(w => nl.includes(w) || w.includes(nl)) || q.includes(nl);
+      const hayVisit = palabras.some(w => nv.includes(w) || w.includes(nv)) || q.includes(nv);
+      return { m, score: (hayLocal ? 1 : 0) + (hayVisit ? 1 : 0) };
+    }).filter(c => c.score > 0).sort((a, b) => b.score - a.score);
+
+    if (!candidatos.length) return {};
+    // Coincidencia con ambos equipos → único
+    const dobles = candidatos.filter(c => c.score === 2);
+    if (dobles.length === 1) return { match: dobles[0].m };
+    if (dobles.length > 1) return { opciones: dobles.map(c => c.m) };
+    // Solo un equipo coincide → devolver opciones (pueden ser varios partidos)
+    return { opciones: candidatos.slice(0, 6).map(c => c.m) };
+  }
+
   return {
     escapeHTML,
     partidoCerrado,
     formatDif,
     calcularPuntos,
     tableSkeleton,
+    normalizar,
+    buscarPartido,
   };
 })();

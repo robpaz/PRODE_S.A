@@ -25,6 +25,8 @@
         panel.classList.remove('hidden');
         renderResultadosForm();
         renderMetricas();
+        renderSolicitudes();
+        initEditor();
       } else {
         alert('Passphrase incorrecta.');
       }
@@ -34,7 +36,107 @@
 
     document.getElementById('btn-recalcular').onclick = recalcular;
     document.getElementById('btn-refresh-metricas').onclick = renderMetricas;
+    document.getElementById('btn-refresh-solicitudes').onclick = renderSolicitudes;
   });
+
+  // ---- SOLICITUDES DE CAMBIO ----
+  async function renderSolicitudes() {
+    const cont = document.getElementById('admin-solicitudes');
+    if (!cont) return;
+    cont.innerHTML = '<p>Cargando…</p>';
+    try {
+      const sols = await obtenerSolicitudes();
+      if (!sols.length) { cont.innerHTML = '<p class="admin-empty">No hay solicitudes.</p>'; return; }
+      cont.innerHTML = sols.map(s => `
+        <div class="admin-sol ${s.estado === 'pendiente' ? 'pend' : 'done'}">
+          <div class="admin-sol-main">
+            <strong>${U().escapeHTML(s.participante_nombre || '(sin nombre)')}</strong>
+            — ${U().escapeHTML(s.partido_texto || s.partido_id || '')}<br>
+            <span class="admin-sol-detail">Actual: <b>${U().escapeHTML(s.marcador_actual || 's/d')}</b> → Pedido: <b>${U().escapeHTML(s.marcador_solicitado || '')}</b></span>
+            ${s.solicitante ? `<br><span class="admin-sol-detail">Pide: ${U().escapeHTML(s.solicitante)}</span>` : ''}
+            ${s.motivo ? `<br><span class="admin-sol-detail">Motivo: ${U().escapeHTML(s.motivo)}</span>` : ''}
+          </div>
+          <div class="admin-sol-actions">
+            <span class="admin-sol-estado">${U().escapeHTML(s.estado)}</span>
+            ${s.estado === 'pendiente'
+              ? `<button class="admin-sol-btn" data-id="${s.id}" data-estado="resuelta">Marcar resuelta</button>
+                 <button class="admin-sol-btn rechaz" data-id="${s.id}" data-estado="rechazada">Rechazar</button>`
+              : ''}
+          </div>
+        </div>`).join('');
+      cont.querySelectorAll('.admin-sol-btn').forEach(btn => {
+        btn.onclick = async () => {
+          btn.disabled = true;
+          try { await actualizarEstadoSolicitud(btn.getAttribute('data-id'), btn.getAttribute('data-estado')); renderSolicitudes(); }
+          catch (e) { console.error(e); alert('Error al actualizar.'); btn.disabled = false; }
+        };
+      });
+    } catch (e) { console.error(e); cont.innerHTML = '<p>⚠️ Error al cargar solicitudes.</p>'; }
+  }
+
+  // ---- EDITOR DE PREDICCIONES ----
+  async function initEditor() {
+    const sel = document.getElementById('admin-editor-persona');
+    if (!sel) return;
+    const parts = await obtenerClasificacion();
+    sel.innerHTML = parts.map(p => `<option value="${p.id}">${U().escapeHTML(p.nombre)} — ${U().escapeHTML(p.curso)}</option>`).join('');
+    document.getElementById('btn-editor-cargar').onclick = () => cargarEditor(sel.value);
+  }
+
+  async function cargarEditor(participanteId) {
+    const cont = document.getElementById('admin-editor');
+    const guardarBtn = document.getElementById('btn-editor-guardar');
+    const status = document.getElementById('editor-status');
+    if (!cont) return;
+    status.textContent = '';
+    cont.innerHTML = '<p>Cargando…</p>';
+    const preds = await obtenerPrediccionesDeParticipante(participanteId);
+    const byId = {};
+    preds.forEach(p => { byId[p.partido_id] = p; });
+
+    let html = '';
+    FIXTURE_GRUPOS.forEach(g => {
+      html += `<h3 class="admin-grupo-title">${g.nombreGrupo}</h3><div class="admin-grupo-grid">`;
+      g.partidos.forEach(m => {
+        const local = EQUIPOS[m.local], visitante = EQUIPOS[m.visitante];
+        const p = byId[m.id] || {};
+        const gl = (p.goles_local !== undefined && p.goles_local !== null) ? p.goles_local : '';
+        const gv = (p.goles_visitante !== undefined && p.goles_visitante !== null) ? p.goles_visitante : '';
+        html += `
+          <div class="admin-match" data-match-id="${m.id}">
+            <span class="admin-match-id">${m.id}</span>
+            <span class="admin-team">${U().escapeHTML(local.nombre)}</span>
+            <input type="number" min="0" max="30" class="admin-score" id="ed-${m.id}-l" value="${gl}">
+            <span>:</span>
+            <input type="number" min="0" max="30" class="admin-score" id="ed-${m.id}-v" value="${gv}">
+            <span class="admin-team">${U().escapeHTML(visitante.nombre)}</span>
+          </div>`;
+      });
+      html += `</div>`;
+    });
+    cont.innerHTML = html;
+    guardarBtn.style.display = '';
+    guardarBtn.onclick = () => guardarEditor(participanteId);
+  }
+
+  async function guardarEditor(participanteId) {
+    const status = document.getElementById('editor-status');
+    const guardarBtn = document.getElementById('btn-editor-guardar');
+    guardarBtn.disabled = true; status.textContent = 'Guardando…';
+    try {
+      let n = 0;
+      for (const m of TODOS_LOS_PARTIDOS) {
+        const l = document.getElementById(`ed-${m.id}-l`);
+        const v = document.getElementById(`ed-${m.id}-v`);
+        if (!l || !v || l.value === '' || v.value === '') continue;
+        await actualizarUnaPrediccion(participanteId, m.id, parseInt(l.value, 10), parseInt(v.value, 10));
+        n++;
+      }
+      status.textContent = `✅ Guardado (${n} partidos). Recalculá el ranking para aplicar puntos.`;
+    } catch (e) {
+      console.error(e); status.textContent = '⚠️ Error al guardar: ' + (e.message || e);
+    } finally { guardarBtn.disabled = false; }
+  }
 
   async function renderResultadosForm() {
     const cont = document.getElementById('admin-resultados');

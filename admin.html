@@ -59,6 +59,25 @@
       </div>
 
       <div class="admin-section">
+        <h2>📨 Solicitudes de cambio</h2>
+        <p>Pedidos de cambio de pronóstico enviados desde el chat del sitio.</p>
+        <button class="btn-refresh" id="btn-refresh-solicitudes">ACTUALIZAR</button>
+        <div id="admin-solicitudes"></div>
+      </div>
+
+      <div class="admin-section">
+        <h2>✏️ Editor de predicciones</h2>
+        <p>Elegí un participante, editá cualquier marcador y guardá. Luego usá "Recalcular ranking".</p>
+        <div class="admin-editor-bar">
+          <select id="admin-editor-persona"></select>
+          <button class="btn-primary" id="btn-editor-cargar">Cargar</button>
+          <button class="btn-primary" id="btn-editor-guardar" style="display:none;">Guardar cambios</button>
+          <span id="editor-status" class="recalc-status"></span>
+        </div>
+        <div id="admin-editor"></div>
+      </div>
+
+      <div class="admin-section">
         <h2>🏁 Corrección automática</h2>
         <p>Recalcula puntos, aciertos exactos y diferencia de goles de todos los participantes
            según los resultados cargados.</p>
